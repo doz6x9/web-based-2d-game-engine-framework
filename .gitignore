@@ -70,7 +70,10 @@ web_modules/
 .env.*
 !.env.example # Keep the example file for other developers
 .env.production # Explicitly ignore production secrets
+!.env.example # Keep the example file for other developers
+.env.production # Explicitly ignore production secrets
 
+# parcel-bundler cache (https://parceljs.com/)
 # parcel-bundler cache (https://parceljs.com/)
 .cache
 .parcel-cache
