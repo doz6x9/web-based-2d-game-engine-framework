@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    /* Type Checking */
+    "strict": true,                         /* Enable all strict type-checking options. Highly recommended for robustness. */
+    "noImplicitAny": true,                  /* Raise error on expressions and declarations with an implied 'any' type. */
+    "strictNullChecks": true,               /* Enable strict checking of null and undefined. */
+    "strictFunctionTypes": true,            /* Enable strict checking of function types. */
+    "strictBindCallApply": true,            /* Enable strict 'bind', 'call', and 'apply' methods on functions. */
+    "strictPropertyInitialization": true,   /* Check for uninitialized properties in classes. */
+    "noImplicitThis": true,                 /* Raise error on 'this' expressions with an implied 'any' type. */
+    "alwaysStrict": true,                   /* Ensure compilation of files in strict mode. */
+    "noUnusedLocals": true,                 /* Report errors on unused local variables. */
+    "noUnusedParameters": true,             /* Report errors on unused parameters. */
+    "noImplicitReturns": true,              /* Report error when not all code paths in function return a value. */
+    "noFallthroughCasesInSwitch": true,     /* Report errors for fallthrough cases in switch statement. */
+
+    /* Modules and Environment */
+    "target": "ES2020",                     /* Specify ECMAScript target version for output JS. Node.js supports modern standards. */
+    "module": "CommonJS",                   /* Specify module code generation: CommonJS is standard for Node.js backends. */
+    "esModuleInterop": true,                /* Allows using `import x from "y"` for packages that only export `export =`. */
+    "forceConsistentCasingInFileNames": true, /* Ensure that file names are consistent in casing. */
+    
+    /* Output */
+    "outDir": "./dist",                     /* Redirect output structure to this directory. */
+    "rootDir": "./",                        /* Specify the root directory of source files. */
+    
+    /* Other */
+    "skipLibCheck": true                    /* Skip type checking of declaration files (.d.ts). Speeds up compilation. */
+  },
+  "include": [
+    "./server.ts",                          /* Include the main server file */
+    "src/**/*.ts",                          /* Include all source files in a potential 'src' subdirectory (FIXED) */
+    "./db/**/*.ts"                          /* Include all database files (models, migrations) */
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

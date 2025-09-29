@@ -68,9 +68,10 @@ web_modules/
 # dotenv environment variable files
 .env
 .env.*
-!.env.example
+!.env.example # Keep the example file for other developers
+.env.production # Explicitly ignore production secrets
 
-# parcel-bundler cache (https://parceljs.org/)
+# parcel-bundler cache (https://parceljs.com/)
 .cache
 .parcel-cache
 
@@ -137,3 +138,31 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+###########################################################
+# PROJECT SPECIFIC RULES (Web Based 2D Game Engine)
+###########################################################
+
+# Monorepo structure dependencies
+/frontend/node_modules
+/backend/node_modules
+/ai_module/node_modules # if you treat the AI module as a separate NPM package
+
+# Build output directories (Frontend/Backend)
+/frontend/dist
+/backend/dist
+/frontend/build
+/backend/build
+
+# Database, Configuration, and Secrets
+# Ignore database backup files
+*.sql
+*.dump
+
+# Ignore local configuration and sensitive files
+backend/config/local.json
+backend/config/db_credentials.js
+backend/config/*.private.* # Example rule for any private/secret configs
+
+# Generated/temporary files
+/ai_module/generated_maps/
