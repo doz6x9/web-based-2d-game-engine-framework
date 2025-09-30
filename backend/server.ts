@@ -22,7 +22,7 @@ app.use(express.json());
 // --- 2. API ROUTERS ---
 
 // Map Router: all endpoints start with /api/maps
-app.use('/api/maps', mapRouter); 
+app.use('/api/maps', mapRouter);
 
 // Test API Endpoint (Legacy/Root Status)
 // Renamed 'req' to '_req' to satisfy TS compiler (TS6133) since it's not used here.
