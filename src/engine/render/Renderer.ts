@@ -334,6 +334,36 @@ export class Renderer {
   }
 
   /**
+   * Creates a PIXI.Sprite from a loaded texture and adds it to the sprite container.
+   * This method handles the PIXI-specific creation and addition to the display list.
+   * The GameEngine should store the returned sprite reference to update its position later.
+   * @param textureId The ID of the loaded texture (as provided to loadAssets).
+   * @param x World X coordinate for initial placement.
+   * @param y World Y coordinate for initial placement.
+   * @returns The created PIXI.Sprite.
+   * @throws Error if texture with textureId is not found.
+   */
+  public createSprite(textureId: string, x: number, y: number): PIXI.Sprite {
+    const texture = this.getTexture(textureId);
+    if (!texture) {
+      throw new Error(`Renderer: Texture with ID '${textureId}' not found. Did you load it?`);
+    }
+    const sprite = new PIXI.Sprite(texture);
+    this.updateSpritePosition(sprite, x, y); // Set initial position
+    this.spriteContainer.addChild(sprite);
+    return sprite;
+  }
+
+  /**
+   * Removes a PIXI.Sprite from the sprite container and destroys its resources.
+   * @param sprite The PIXI.Sprite to remove.
+   */
+  public removeSprite(sprite: PIXI.Sprite): void {
+    this.spriteContainer.removeChild(sprite);
+    sprite.destroy(); // Clean up PIXI resources associated with the sprite
+  }
+
+  /**
    * Get camera
    */
   getCamera(): Camera {

@@ -6,6 +6,7 @@ export enum ItemType {
   CONSUMABLE = 'consumable',
   EQUIPMENT = 'equipment',
   KEY_ITEM = 'key_item',
+  WEAPON = 'weapon', // Added WEAPON item type
 }
 
 /**

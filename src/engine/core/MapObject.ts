@@ -28,7 +28,6 @@ export class MapObject {
   sprite: string;
   isActive: boolean = true;
   pixiSprite: PIXI.Sprite | null = null; // New: Holds the actual PixiJS sprite instance
-
   constructor(
     id: string,
     type: MapObjectType,

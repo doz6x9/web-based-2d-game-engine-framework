@@ -5,7 +5,7 @@ import { AStarPathfinder } from './algorithms/AStar';
 import { FieldOfView } from './algorithms/FieldOfView';
 import { FogOfWar } from './algorithms/FogOfWar';
 import { NPCAISystem } from './algorithms/NPCAISystem';
-import { NPC, Enemy, MapObject, MapObjectType } from './core/MapObject';
+import { NPC, Enemy, MapObject, MapObjectType, InteractiveObject } from './core/MapObject'; // Import InteractiveObject
 import { TileRegistry } from './core/TileRegistry';
 import { Renderer } from './render/Renderer';
 import { MouseHandler, MouseEventType } from './interaction/MouseHandler';
@@ -58,6 +58,11 @@ export class GameEngine {
 
   private playerPixiSprite: PIXI.Sprite | null = null; // New: Player's PIXI.Sprite instance
 
+  // Player stats
+  private playerHealth: number = 100;
+  private playerMaxHealth: number = 100;
+  private playerAttackPower: number = 10;
+
   private gameTime: number = 0;
   private isRunning: boolean = false;
   private lastFrameTime: number = 0;
@@ -96,7 +101,15 @@ export class GameEngine {
     try {
       await this.renderer.loadAssets([
         { id: 'hero', path: '/src/assets/hero.png' },
-        { id: 'potion', path: '/src/assets/potion.png' }
+        { id: 'potion', path: '/src/assets/potion.png' },
+        { id: 'gate', path: '/src/assets/gate.png' },
+        { id: 'gate_open', path: '/src/assets/gate_open.png' },
+        { id: 'chest', path: '/src/assets/chest.png' },
+        { id: 'chest_open', path: '/src/assets/chest_open.png' },
+        { id: 'sword', path: '/src/assets/sword.png' },
+        { id: 'mana_potion', path: '/src/assets/mana_potion.png' },
+        { id: 'goblin', path: '/src/assets/goblin.png' },
+        { id: 'key', path: '/src/assets/key.png' },
       ]);
       console.log('Visual assets loaded successfully.');
     } catch (error) {
@@ -128,18 +141,64 @@ export class GameEngine {
     const npc = new NPC('npc_01', new Vector(7, 2), 'hero'); // Reusing 'hero' sprite for now
     this.addMapObject(npc);
 
-    // Add a demo item to the map
-    const healthPotion = new Item(
-      'health_potion',
+    // Add a demo item to the map (Health Potion 1)
+    const healthPotion1 = new Item(
+      'health_potion_1',
       'Health Potion',
       'Restores a small amount of health.',
-      'potion', // Use the 'potion' sprite ID
+      'potion',
       ItemType.CONSUMABLE,
-      true, // Stackable
-      5,    // Max stack size
-      1     // Initial quantity
+      true,
+      5,
+      1
     );
-    this.addMapObject(healthPotion.toMapObject(new Vector(3, 3))); // Place at (3,3)
+    this.addMapObject(healthPotion1.toMapObject(new Vector(3, 3))); // Place at (3,3)
+
+    // Add a demo item to the map (Health Potion 2)
+    const healthPotion2 = new Item(
+      'health_potion_2',
+      'Health Potion',
+      'Restores a small amount of health.',
+      'potion',
+      ItemType.CONSUMABLE,
+      true,
+      5,
+      1
+    );
+    this.addMapObject(healthPotion2.toMapObject(new Vector(4, 4))); // Place at (4,4)
+
+    // Add a Key item to the map
+    const gateKey = new Item(
+      'gate_key',
+      'Rusty Key',
+      'A rusty key that might open something.',
+      'key',
+      ItemType.KEY_ITEM
+    );
+    this.addMapObject(gateKey.toMapObject(new Vector(1, 1))); // Place at (1,1)
+
+    // Add a Gate (InteractiveObject)
+    const gate = new InteractiveObject('gate_01', MapObjectType.DOOR, new Vector(5, 2), 'gate');
+    gate.setProperty('isOpen', false);
+    gate.setProperty('keyId', 'gate_key'); // Key required to open
+    this.addMapObject(gate);
+    this.grid.setCellType(10, 30, CellType.WALL); // Make gate initially unwalkable
+
+    // Add a Chest (InteractiveObject)
+    const chest = new InteractiveObject('chest_01', MapObjectType.CHEST, new Vector(8, 8), 'chest');
+    chest.setProperty('isOpen', false);
+    chest.setProperty('contents', [
+      new Item('mana_potion_1', 'Mana Potion', 'Restores a small amount of mana.', 'mana_potion', ItemType.CONSUMABLE, true, 3, 1),
+      new Item('basic_sword', 'Basic Sword', 'A simple sword.', 'sword', ItemType.WEAPON),
+    ]);
+    this.addMapObject(chest);
+
+    // Add an Enemy (Goblin)
+    const goblin = new Enemy('goblin_01', new Vector(3, 7), 'goblin');
+    goblin.health = 30;
+    goblin.maxHealth = 30;
+    goblin.attackPower = 5;
+    this.addMapObject(goblin);
 
     this.setupEventHandlers();
     this.startGameLoop();
@@ -205,7 +264,7 @@ export class GameEngine {
     // Check if an interactive object was clicked
     let clickedObject: MapObject | null = null;
     for (const object of this.mapObjects.values()) {
-      if (object.position.equals(pos) && (object instanceof NPC || object.type === MapObjectType.ITEM)) {
+      if (object.position.equals(pos) && (object instanceof NPC || object.type === MapObjectType.ITEM || object.type === MapObjectType.DOOR || object.type === MapObjectType.CHEST)) {
         clickedObject = object;
         break;
       }
@@ -294,27 +353,47 @@ export class GameEngine {
     } else {
       // Fallback for keyboard 'E' if it were re-enabled, or for future direct interaction
       for (const object of this.mapObjects.values()) {
-        if (object.position.manhattanDistance(this.currentPlayerPos) <= 1 && (object instanceof NPC || object.type === MapObjectType.ITEM)) {
+        if (object.position.manhattanDistance(this.currentPlayerPos) <= 1 && (object instanceof NPC || object.type === MapObjectType.ITEM || object.type === MapObjectType.DOOR || object.type === MapObjectType.CHEST)) {
           objectToInteract = object;
-          break;
+          break; // This break is fine as it's inside a loop
         }
       }
     }
 
     if (objectToInteract) {
       if (objectToInteract instanceof NPC) {
-        console.log(`Interacting with NPC: ${objectToInteract.id} at ${objectToInteract.position.x}, ${objectToInteract.position.y}`);
+        if (objectToInteract.type === MapObjectType.ENEMY) {
+          // Basic combat interaction
+          console.log(`Attacking enemy: ${objectToInteract.id}!`);
+          const enemy = objectToInteract as Enemy;
+          const damage = this.playerAttackPower;
+          enemy.takeDamage(damage);
+          console.log(`${enemy.id} took ${damage} damage. Health: ${enemy.health}/${enemy.maxHealth}`);
 
-        const sampleDialogue: DialogueLine[] = [
-          { speaker: objectToInteract.id, text: 'Hello, traveler! The world is full of wonders.' },
-          { speaker: 'Player', text: 'Indeed. What brings you to this place?' },
-          { speaker: objectToInteract.id, text: 'Just enjoying the quiet. Be careful of the walls, they are quite solid.' },
-        ];
+          if (!enemy.isAlive()) {
+            console.log(`${enemy.id} defeated!`);
+            this.removeMapObject(enemy.id);
+            this.render();
+          } else {
+            this.uiManager.startDialogue([{ speaker: enemy.id, text: `You hit me! My health is ${enemy.health}.` }]);
+          }
+          return; // Exit after handling enemy interaction
+        } else {
+          // Regular NPC dialogue
+          console.log(`Interacting with NPC: ${objectToInteract.id} at ${objectToInteract.position.x}, ${objectToInteract.position.y}`);
 
-        this.uiManager.startDialogue(sampleDialogue).then(() => {
-          console.log('Dialogue finished!');
-          // Resume game state or trigger next event after dialogue
-        });
+          const sampleDialogue: DialogueLine[] = [
+            { speaker: objectToInteract.id, text: 'Hello, traveler! The world is full of wonders.' },
+            { speaker: 'Player', text: 'Indeed. What brings you to this place?' },
+            { speaker: objectToInteract.id, text: 'Just enjoying the quiet. Be careful of the walls, they are quite solid.' },
+          ];
+
+          this.uiManager.startDialogue(sampleDialogue).then(() => {
+            console.log('Dialogue finished!');
+            // Resume game state or trigger next event after dialogue
+          });
+          return; // Exit after handling NPC dialogue
+        }
       } else if (objectToInteract.type === MapObjectType.ITEM) {
         console.log(`Picking up item: ${objectToInteract.getProperty('name')} at ${objectToInteract.position.x}, ${objectToInteract.position.y}`);
         const item = new Item(
@@ -331,6 +410,44 @@ export class GameEngine {
         this.removeMapObject(objectToInteract.id); // Remove item from map
         this.uiManager.updateInventoryDisplay(this.inventory); // Update inventory UI
         this.render(); // Re-render to show item removed
+        return; // Exit after handling item pickup
+      } else if (objectToInteract.type === MapObjectType.DOOR) {
+        const gate = objectToInteract as InteractiveObject;
+        if (!gate.getProperty('isOpen')) {
+          const keyId = gate.getProperty('keyId');
+          if (this.inventory.hasItem(keyId)) {
+            this.inventory.removeItem(keyId);
+            gate.setProperty('isOpen', true);
+            gate.sprite = 'gate_open'; // Change sprite
+            this.grid.setCellType(gate.position.x, gate.position.y, CellType.GRASS); // Make walkable
+            this.uiManager.startDialogue([{ speaker: 'System', text: `You used the ${keyId} and opened the gate!` }]);
+            this.render(); // Re-render to show open gate
+          } else {
+            this.uiManager.startDialogue([{ speaker: 'System', text: 'The gate is locked. You need a key.' }]);
+          }
+        } else {
+          this.uiManager.startDialogue([{ speaker: 'System', text: 'The gate is already open.' }]);
+        }
+        return; // Exit after handling door interaction
+      } else if (objectToInteract.type === MapObjectType.CHEST) {
+        const chest = objectToInteract as InteractiveObject;
+        if (!chest.getProperty('isOpen')) {
+          chest.setProperty('isOpen', true);
+          chest.sprite = 'chest_open'; // Change sprite
+          const contents: Item[] = chest.getProperty('contents');
+          let dialogueText = 'You opened the chest and found: ';
+          contents.forEach(item => {
+            this.inventory.addItem(item);
+            dialogueText += `${item.name} (x${item.quantity}), `;
+          });
+          dialogueText = dialogueText.slice(0, -2) + '.'; // Remove trailing comma and add period
+          this.uiManager.startDialogue([{ speaker: 'System', text: dialogueText }]);
+          this.uiManager.updateInventoryDisplay(this.inventory);
+          this.render(); // Re-render to show open chest
+        } else {
+          this.uiManager.startDialogue([{ speaker: 'System', text: 'The chest is empty.' }]);
+        }
+        return; // Exit after handling chest interaction
       }
     } else {
       console.log('No interactive object found nearby.');
@@ -383,6 +500,9 @@ export class GameEngine {
       const cell = this.path[i];
       this.renderer.drawMarker(cell.x, cell.y, 0xffff00, 3);
     }
+
+    // Update player health UI
+    this.uiManager.updatePlayerHealth(this.playerHealth, this.playerMaxHealth);
 
     // Center camera on player (using interpolated position for smooth camera)
     this.renderer.getCamera().centerOn(this.targetPlayerPos);

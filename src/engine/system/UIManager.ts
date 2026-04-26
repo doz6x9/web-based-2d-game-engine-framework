@@ -10,7 +10,8 @@ export class UIManager {
 
   private inventoryPanel: HTMLElement | null;
   private inventoryList: HTMLElement | null;
-  private inventoryButton: HTMLElement | null; // New: Inventory button
+  private inventoryButton: HTMLElement | null;
+  private playerHealthElement: HTMLElement | null; // New: Player Health display element
 
   private isInventoryOpen: boolean = false;
 
@@ -21,20 +22,13 @@ export class UIManager {
 
     this.inventoryPanel = document.getElementById('inventoryPanel');
     this.inventoryList = document.getElementById('inventoryList');
-    this.inventoryButton = document.getElementById('inventoryButton'); // Get inventory button
+    this.inventoryButton = document.getElementById('inventoryButton');
+    this.playerHealthElement = document.getElementById('playerHealth'); // Get player health element
 
     this.setupEventHandlers();
   }
 
   private setupEventHandlers(): void {
-    // Removed keyboard 'I' listener for inventory toggle
-    // this.keyboardHandler.on(KeyboardEventType.KEY_DOWN, (code: string) => {
-    //   if (code === 'KeyI') {
-    //     if (this.isDialogueActive()) return;
-    //     this.toggleInventory();
-    //   }
-    // });
-
     // Add click listener for the inventory button
     if (this.inventoryButton) {
       this.inventoryButton.addEventListener('click', () => {
@@ -92,6 +86,15 @@ export class UIManager {
 
   isInventoryOpen(): boolean {
     return this.isInventoryOpen;
+  }
+
+  /**
+   * Update the player's health display.
+   */
+  updatePlayerHealth(currentHealth: number, maxHealth: number): void {
+    if (this.playerHealthElement) {
+      this.playerHealthElement.textContent = `${currentHealth}/${maxHealth}`;
+    }
   }
 
   // --- General UI State ---
