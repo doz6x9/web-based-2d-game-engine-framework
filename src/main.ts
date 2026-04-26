@@ -1,34 +1,26 @@
+import './styles/main.scss';
 import { GameEngine } from './engine/GameEngine';
-import { Vector } from './engine/core/Vector';
-import { AStarPathfinder } from './engine/algorithms/AStar';
-import { FieldOfView } from './engine/algorithms/FieldOfView';
-import { FogOfWar } from './engine/algorithms/FogOfWar';
 
-// 1. Grab the HTML canvas and start the Engine
+// Initialize the game engine
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-const engine = new GameEngine(canvas, 800, 600);
+const engine = new GameEngine(canvas, 1280, 720);
 
-// Set up state variables
-let playerPosition = new Vector(1, 1); // Start at top-left corner
-let pathfinder: AStarPathfinder;
-let fov: FieldOfView;
-let fog: FogOfWar;
+// Load the demo map
+engine.loadMap('/maps/test-map.json').catch((error) => {
+  console.error('Failed to load map:', error);
+});
 
-async function bootstrapGame() {
-    // 2. Load the Map we just created
-    await engine.loadMap('/maps/demo-level.json');
-    engine.setPlayerPosition(playerPosition);
+// Update UI with player position
+setInterval(() => {
+  const playerPos = engine.getPlayerPosition();
+  document.getElementById('playerCoords')!.textContent = `${playerPos.x}, ${playerPos.y}`;
+}, 100);
 
-    // 3. Initialize Algorithms using the loaded map grid
-    const grid = engine.getGrid();
-    pathfinder = new AStarPathfinder(grid);
-    fov = new FieldOfView(grid);
-    fog = new FogOfWar(grid.width, grid.height, fov);
-
-    // 4. Do an initial vision check
-    updateVision();
-}
-
-bootstrapGame();
-
-
+// Update UI with mouse position
+const mouseHandler = engine.getMouseHandler();
+mouseHandler.on(
+  'move' as any,
+  (pos) => {
+    document.getElementById('mouseCoords')!.textContent = `${pos.x}, ${pos.y}`;
+  }
+);

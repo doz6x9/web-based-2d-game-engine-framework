@@ -5,14 +5,20 @@ import { AStarPathfinder } from './algorithms/AStar';
 import { FieldOfView } from './algorithms/FieldOfView';
 import { FogOfWar } from './algorithms/FogOfWar';
 import { NPCAISystem } from './algorithms/NPCAISystem';
-import { NPC, Enemy, MapObject } from './core/MapObject';
+import { NPC, Enemy, MapObject, MapObjectType, InteractiveObject } from './core/MapObject'; // Import InteractiveObject
 import { TileRegistry } from './core/TileRegistry';
 import { Renderer } from './render/Renderer';
 import { MouseHandler, MouseEventType } from './interaction/MouseHandler';
+import { KeyboardHandler, KeyboardEventType } from './interaction/KeyboardHandler';
 import { AnimationLibrary } from './render/Animation';
 import { ParticleSystem } from './render/Particles';
 import { SaveLoadManager, QuickSaveManager } from './system/SaveLoadManager';
 import { LevelEditor } from './editor/LevelEditor';
+import { DialogueLine } from './system/DialogueManager';
+import { Inventory } from './core/Inventory';
+import { Item, ItemType } from './core/Item';
+import { UIManager } from './system/UIManager';
+import * as PIXI from 'pixi.js'; // Import PIXI for sprite type
 
 /**
  * Main Game Engine
@@ -22,10 +28,13 @@ export class GameEngine {
   private map: GameMap | null = null;
   private grid: Grid;
   private renderer: Renderer;
-  private mouseHandler: MouseHandler;
+  private mouseHandler!: MouseHandler; // Initialized in init()
+  private keyboardHandler: KeyboardHandler;
+  private uiManager!: UIManager; // Initialized in init()
+  private inventory: Inventory;
   private pathfinder: AStarPathfinder;
   private fov: FieldOfView;
-  private fogOfWar: FogOfWar;
+  private fogOfWar!: FogOfWar; // Initialized in init() or loadMap()
   private aiSystem: NPCAISystem;
   private animationLibrary: AnimationLibrary;
   private particleSystem: ParticleSystem;
@@ -36,18 +45,35 @@ export class GameEngine {
   private currentPlayerPos: Vector = new Vector(5, 5);
   private selectedCell: Vector | null = null;
   private path: Vector[] = [];
+
+  // Player movement state
+  private isPlayerMoving: boolean = false;
+  private currentPathIndex: number = 0;
+  private moveProgress: number = 0; // 0 to 1, progress along current path segment
+  private playerMoveSpeed: number = 0.005; // tiles per millisecond (e.g., 0.005 means 200ms per tile)
+  private targetPlayerPos: Vector = new Vector(5, 5); // The exact interpolated position of the player
+
   private mapObjects: Map<string, MapObject> = new Map();
+  private pendingInteractionTarget: MapObject | null = null;
+
+  private playerPixiSprite: PIXI.Sprite | null = null; // New: Player's PIXI.Sprite instance
+
+  // Player stats
+  private playerHealth: number = 100;
+  private playerMaxHealth: number = 100;
+  private playerAttackPower: number = 10;
+
   private gameTime: number = 0;
   private isRunning: boolean = false;
   private lastFrameTime: number = 0;
 
-  constructor(canvas: HTMLCanvasElement, canvasWidth: number, canvasHeight: number) {
-    this.grid = new Grid(100, 100);
-    this.renderer = new Renderer(canvas, canvasWidth, canvasHeight, 32);
-    this.mouseHandler = new MouseHandler(canvas);
+  constructor() {
+    this.grid = new Grid(100, 100); // Default grid size, will be updated by map
+    this.renderer = new Renderer(32); // Pass tileSize only
+    this.keyboardHandler = new KeyboardHandler();
+    this.inventory = new Inventory();
     this.pathfinder = new AStarPathfinder(this.grid);
     this.fov = new FieldOfView(this.grid);
-    this.fogOfWar = new FogOfWar(100, 100, this.fov);
     this.aiSystem = new NPCAISystem(this.grid);
     this.animationLibrary = new AnimationLibrary();
     this.particleSystem = new ParticleSystem();
@@ -57,6 +83,122 @@ export class GameEngine {
 
     // Initialize tile registry
     TileRegistry.initialize();
+  }
+
+  /**
+   * Asynchronously initializes the game engine components.
+   */
+  async init(canvas: HTMLCanvasElement, canvasWidth: number, canvasHeight: number): Promise<void> {
+    // Initialize renderer after canvas is available
+    await this.renderer.init(canvas, canvasWidth, canvasHeight, this.grid.getWidth(), this.grid.getHeight());
+
+    // Initialize MouseHandler and UIManager now that canvas and renderer are ready
+    this.mouseHandler = new MouseHandler(canvas);
+    this.uiManager = new UIManager(this.keyboardHandler, this.inventory);
+    this.fogOfWar = new FogOfWar(this.grid.getWidth(), this.grid.getHeight(), this.fov); // Initialize FogOfWar here
+
+    // Load visual assets BEFORE loading map or creating objects that use them
+    try {
+      await this.renderer.loadAssets([
+        { id: 'hero', path: '/src/assets/hero.png' },
+        { id: 'potion', path: '/src/assets/potion.png' },
+        { id: 'gate', path: '/src/assets/gate.png' },
+        { id: 'gate_open', path: '/src/assets/gate_open.png' },
+        { id: 'chest', path: '/src/assets/chest.png' },
+        { id: 'chest_open', path: '/src/assets/chest_open.png' },
+        { id: 'sword', path: '/src/assets/sword.png' },
+        { id: 'mana_potion', path: '/src/assets/mana_potion.png' },
+        { id: 'goblin', path: '/src/assets/goblin.png' },
+        { id: 'key', path: '/src/assets/key.png' },
+      ]);
+      console.log('Visual assets loaded successfully.');
+    } catch (error) {
+      console.error('Failed to load visual assets:', error);
+      throw error; // Propagate error
+    }
+
+    // Create player sprite once
+    const playerTexture = this.renderer.getTexture('hero');
+    if (playerTexture) {
+      this.playerPixiSprite = new PIXI.Sprite(playerTexture);
+      this.playerPixiSprite.width = this.renderer.tileSize;
+      this.playerPixiSprite.height = this.renderer.tileSize;
+      this.renderer.getSpriteContainer().addChild(this.playerPixiSprite);
+    } else {
+      console.error('Player texture "hero" not found!');
+    }
+
+    // Load the demo map
+    try {
+      await this.loadMap('/maps/test-map.json'); // This calls render(), which calls renderer.renderMap()
+      console.log('Map loaded successfully.');
+    } catch (error) {
+      console.error('Failed to load map:', error);
+      throw error; // Propagate error
+    }
+
+    // Add a demo NPC
+    const npc = new NPC('npc_01', new Vector(7, 2), 'hero'); // Reusing 'hero' sprite for now
+    this.addMapObject(npc);
+
+    // Add a demo item to the map (Health Potion 1)
+    const healthPotion1 = new Item(
+      'health_potion_1',
+      'Health Potion',
+      'Restores a small amount of health.',
+      'potion',
+      ItemType.CONSUMABLE,
+      true,
+      5,
+      1
+    );
+    this.addMapObject(healthPotion1.toMapObject(new Vector(3, 3))); // Place at (3,3)
+
+    // Add a demo item to the map (Health Potion 2)
+    const healthPotion2 = new Item(
+      'health_potion_2',
+      'Health Potion',
+      'Restores a small amount of health.',
+      'potion',
+      ItemType.CONSUMABLE,
+      true,
+      5,
+      1
+    );
+    this.addMapObject(healthPotion2.toMapObject(new Vector(4, 4))); // Place at (4,4)
+
+    // Add a Key item to the map
+    const gateKey = new Item(
+      'gate_key',
+      'Rusty Key',
+      'A rusty key that might open something.',
+      'key',
+      ItemType.KEY_ITEM
+    );
+    this.addMapObject(gateKey.toMapObject(new Vector(1, 1))); // Place at (1,1)
+
+    // Add a Gate (InteractiveObject)
+    const gate = new InteractiveObject('gate_01', MapObjectType.DOOR, new Vector(5, 2), 'gate');
+    gate.setProperty('isOpen', false);
+    gate.setProperty('keyId', 'gate_key'); // Key required to open
+    this.addMapObject(gate);
+    this.grid.setCellType(10, 30, CellType.WALL); // Make gate initially unwalkable
+
+    // Add a Chest (InteractiveObject)
+    const chest = new InteractiveObject('chest_01', MapObjectType.CHEST, new Vector(8, 8), 'chest');
+    chest.setProperty('isOpen', false);
+    chest.setProperty('contents', [
+      new Item('mana_potion_1', 'Mana Potion', 'Restores a small amount of mana.', 'mana_potion', ItemType.CONSUMABLE, true, 3, 1),
+      new Item('basic_sword', 'Basic Sword', 'A simple sword.', 'sword', ItemType.WEAPON),
+    ]);
+    this.addMapObject(chest);
+
+    // Add an Enemy (Goblin)
+    const goblin = new Enemy('goblin_01', new Vector(3, 7), 'goblin');
+    goblin.health = 30;
+    goblin.maxHealth = 30;
+    goblin.attackPower = 5;
+    this.addMapObject(goblin);
 
     this.setupEventHandlers();
     this.startGameLoop();
@@ -82,6 +224,13 @@ export class GameEngine {
       }
     }
 
+    // Update FogOfWar and Camera dimensions based on loaded map
+    // Re-initialize FogOfWar with actual map dimensions
+    this.fogOfWar = new FogOfWar(this.map.getWidth(), this.map.getHeight(), this.fov);
+    // Update renderer's camera with actual map dimensions
+    this.renderer.getCamera().mapWidth = this.map.getWidth();
+    this.renderer.getCamera().mapHeight = this.map.getHeight();
+
     this.render();
   }
 
@@ -106,21 +255,80 @@ export class GameEngine {
    * Handle left click
    */
   private onLeftClick(pos: Vector): void {
+    if (this.uiManager.isUIOpen()) return; // Prevent interaction during UI activity
+
     console.log(`Left clicked: ${pos.x}, ${pos.y}`);
     this.selectedCell = pos;
+    this.pendingInteractionTarget = null; // Clear any pending interaction
 
-    // Find path to clicked cell
-    this.path = this.pathfinder.findPath(this.currentPlayerPos, pos);
+    // Check if an interactive object was clicked
+    let clickedObject: MapObject | null = null;
+    for (const object of this.mapObjects.values()) {
+      if (object.position.equals(pos) && (object instanceof NPC || object.type === MapObjectType.ITEM || object.type === MapObjectType.DOOR || object.type === MapObjectType.CHEST)) {
+        clickedObject = object;
+        break;
+      }
+    }
+
+    if (clickedObject) {
+      // If an interactive object was clicked, find an adjacent walkable tile to move to
+      const neighbors = this.grid.getNeighbors(clickedObject.position.x, clickedObject.position.y);
+      let targetAdjacentTile: Vector | null = null;
+      for (const neighbor of neighbors) {
+        const cell = this.grid.getCell(neighbor.x, neighbor.y);
+        if (cell && cell.walkable) {
+          targetAdjacentTile = neighbor;
+          break;
+        }
+      }
+
+      if (targetAdjacentTile) {
+        const newPath = this.pathfinder.findPath(this.currentPlayerPos, targetAdjacentTile);
+        if (newPath.length > 0) {
+          this.path = newPath;
+          this.isPlayerMoving = true;
+          this.currentPathIndex = 0;
+          this.moveProgress = 0;
+          this.targetPlayerPos = this.currentPlayerPos.clone();
+          this.pendingInteractionTarget = clickedObject; // Set pending interaction
+        } else {
+          console.log(`Cannot find path to interact with ${clickedObject.id}.`);
+        }
+      } else {
+        console.log(`No walkable tile adjacent to ${clickedObject.id} for interaction.`);
+      }
+    } else {
+      // No interactive object clicked, proceed with normal pathfinding
+      this.path = this.pathfinder.findPath(this.currentPlayerPos, pos);
+      this.isPlayerMoving = true; // Assume movement if path is found
+      this.currentPathIndex = 0;
+      this.moveProgress = 0;
+      this.targetPlayerPos = this.currentPlayerPos.clone();
+    }
     this.render();
   }
 
   /**
-   * Handle right click
+   * Handle right click (still for movement to any tile)
    */
   private onRightClick(pos: Vector): void {
+    if (this.uiManager.isUIOpen()) return; // Prevent movement during UI activity
+
     console.log(`Right clicked: ${pos.x}, ${pos.y}`);
-    this.currentPlayerPos = pos;
-    this.path = [];
+    this.pendingInteractionTarget = null; // Clear any pending interaction
+    // Only start moving if a path can be found
+    const newPath = this.pathfinder.findPath(this.currentPlayerPos, pos);
+    if (newPath.length > 0) {
+      this.path = newPath;
+      this.isPlayerMoving = true;
+      this.currentPathIndex = 0;
+      this.moveProgress = 0;
+      this.targetPlayerPos = this.currentPlayerPos.clone(); // Start from current grid position
+    } else {
+      this.path = [];
+      this.isPlayerMoving = false;
+      console.log(`Cannot move to ${pos.x}, ${pos.y}. It might be blocked or unwalkable.`);
+    }
     this.render();
   }
 
@@ -132,15 +340,130 @@ export class GameEngine {
   }
 
   /**
+   * Handle interaction (e.g., pressing 'E' or after moving to an object)
+   */
+  private onInteract(targetObject?: MapObject): void {
+    if (this.uiManager.isUIOpen() && !targetObject) return; // Prevent new interaction if UI is active, unless explicitly targeted
+
+    console.log('Interaction triggered!');
+    let objectToInteract: MapObject | null = null;
+
+    if (targetObject) {
+      objectToInteract = targetObject;
+    } else {
+      // Fallback for keyboard 'E' if it were re-enabled, or for future direct interaction
+      for (const object of this.mapObjects.values()) {
+        if (object.position.manhattanDistance(this.currentPlayerPos) <= 1 && (object instanceof NPC || object.type === MapObjectType.ITEM || object.type === MapObjectType.DOOR || object.type === MapObjectType.CHEST)) {
+          objectToInteract = object;
+          break; // This break is fine as it's inside a loop
+        }
+      }
+    }
+
+    if (objectToInteract) {
+      if (objectToInteract instanceof NPC) {
+        if (objectToInteract.type === MapObjectType.ENEMY) {
+          // Basic combat interaction
+          console.log(`Attacking enemy: ${objectToInteract.id}!`);
+          const enemy = objectToInteract as Enemy;
+          const damage = this.playerAttackPower;
+          enemy.takeDamage(damage);
+          console.log(`${enemy.id} took ${damage} damage. Health: ${enemy.health}/${enemy.maxHealth}`);
+
+          if (!enemy.isAlive()) {
+            console.log(`${enemy.id} defeated!`);
+            this.removeMapObject(enemy.id);
+            this.render();
+          } else {
+            this.uiManager.startDialogue([{ speaker: enemy.id, text: `You hit me! My health is ${enemy.health}.` }]);
+          }
+          return; // Exit after handling enemy interaction
+        } else {
+          // Regular NPC dialogue
+          console.log(`Interacting with NPC: ${objectToInteract.id} at ${objectToInteract.position.x}, ${objectToInteract.position.y}`);
+
+          const sampleDialogue: DialogueLine[] = [
+            { speaker: objectToInteract.id, text: 'Hello, traveler! The world is full of wonders.' },
+            { speaker: 'Player', text: 'Indeed. What brings you to this place?' },
+            { speaker: objectToInteract.id, text: 'Just enjoying the quiet. Be careful of the walls, they are quite solid.' },
+          ];
+
+          this.uiManager.startDialogue(sampleDialogue).then(() => {
+            console.log('Dialogue finished!');
+            // Resume game state or trigger next event after dialogue
+          });
+          return; // Exit after handling NPC dialogue
+        }
+      } else if (objectToInteract.type === MapObjectType.ITEM) {
+        console.log(`Picking up item: ${objectToInteract.getProperty('name')} at ${objectToInteract.position.x}, ${objectToInteract.position.y}`);
+        const item = new Item(
+          objectToInteract.getProperty('itemId'),
+          objectToInteract.getProperty('name'),
+          objectToInteract.getProperty('description'),
+          objectToInteract.sprite,
+          objectToInteract.getProperty('type'),
+          objectToInteract.getProperty('stackable'),
+          objectToInteract.getProperty('maxStackSize'),
+          objectToInteract.getProperty('quantity')
+        );
+        this.inventory.addItem(item);
+        this.removeMapObject(objectToInteract.id); // Remove item from map
+        this.uiManager.updateInventoryDisplay(this.inventory); // Update inventory UI
+        this.render(); // Re-render to show item removed
+        return; // Exit after handling item pickup
+      } else if (objectToInteract.type === MapObjectType.DOOR) {
+        const gate = objectToInteract as InteractiveObject;
+        if (!gate.getProperty('isOpen')) {
+          const keyId = gate.getProperty('keyId');
+          if (this.inventory.hasItem(keyId)) {
+            this.inventory.removeItem(keyId);
+            gate.setProperty('isOpen', true);
+            gate.sprite = 'gate_open'; // Change sprite
+            this.grid.setCellType(gate.position.x, gate.position.y, CellType.GRASS); // Make walkable
+            this.uiManager.startDialogue([{ speaker: 'System', text: `You used the ${keyId} and opened the gate!` }]);
+            this.render(); // Re-render to show open gate
+          } else {
+            this.uiManager.startDialogue([{ speaker: 'System', text: 'The gate is locked. You need a key.' }]);
+          }
+        } else {
+          this.uiManager.startDialogue([{ speaker: 'System', text: 'The gate is already open.' }]);
+        }
+        return; // Exit after handling door interaction
+      } else if (objectToInteract.type === MapObjectType.CHEST) {
+        const chest = objectToInteract as InteractiveObject;
+        if (!chest.getProperty('isOpen')) {
+          chest.setProperty('isOpen', true);
+          chest.sprite = 'chest_open'; // Change sprite
+          const contents: Item[] = chest.getProperty('contents');
+          let dialogueText = 'You opened the chest and found: ';
+          contents.forEach(item => {
+            this.inventory.addItem(item);
+            dialogueText += `${item.name} (x${item.quantity}), `;
+          });
+          dialogueText = dialogueText.slice(0, -2) + '.'; // Remove trailing comma and add period
+          this.uiManager.startDialogue([{ speaker: 'System', text: dialogueText }]);
+          this.uiManager.updateInventoryDisplay(this.inventory);
+          this.render(); // Re-render to show open chest
+        } else {
+          this.uiManager.startDialogue([{ speaker: 'System', text: 'The chest is empty.' }]);
+        }
+        return; // Exit after handling chest interaction
+      }
+    } else {
+      console.log('No interactive object found nearby.');
+    }
+  }
+
+  /**
    * Render the game
    */
   private render(): void {
     if (!this.map) return;
 
-    // Render map
+    // Render map (only draws static layers once)
     this.renderer.renderMap(this.map);
 
-    // Update FOV from current player position
+    // Update FOV from current player position (based on grid position)
     const visibleCells = this.fov.calculateFOV(this.currentPlayerPos, 10);
 
     // Update fog of war
@@ -152,21 +475,37 @@ export class GameEngine {
     // Draw FOV visualization
     this.renderer.drawFOV(visibleCells, this.map.getWidth(), this.map.getHeight());
 
-    // Draw player position
-    this.renderer.drawMarker(this.currentPlayerPos.x, this.currentPlayerPos.y, 0x00ff00, 6);
+    // Update player sprite position
+    if (this.playerPixiSprite) {
+      this.renderer.updateSpritePosition(this.playerPixiSprite, this.targetPlayerPos.x, this.targetPlayerPos.y);
+    }
+
+    // Update all other map objects' sprite positions
+    for (const object of this.mapObjects.values()) {
+      if (object.pixiSprite && object.isActive) {
+        this.renderer.updateSpritePosition(object.pixiSprite, object.position.x, object.position.y);
+      }
+    }
+
+    // Clear markers before drawing new ones
+    this.renderer.clearMarkers();
 
     // Draw selected cell if any
     if (this.selectedCell) {
       this.renderer.drawMarker(this.selectedCell.x, this.selectedCell.y, 0x0000ff, 5);
     }
 
-    // Draw path
-    for (const cell of this.path) {
+    // Draw path (excluding the current player position and the next target if moving)
+    for (let i = this.isPlayerMoving ? this.currentPathIndex + 1 : 0; i < this.path.length; i++) {
+      const cell = this.path[i];
       this.renderer.drawMarker(cell.x, cell.y, 0xffff00, 3);
     }
 
-    // Center camera on player
-    this.renderer.getCamera().centerOn(this.currentPlayerPos);
+    // Update player health UI
+    this.uiManager.updatePlayerHealth(this.playerHealth, this.playerMaxHealth);
+
+    // Center camera on player (using interpolated position for smooth camera)
+    this.renderer.getCamera().centerOn(this.targetPlayerPos);
   }
 
   /**
@@ -176,6 +515,56 @@ export class GameEngine {
     if (!this.isRunning) return;
 
     this.gameTime += deltaTime;
+
+    // Only update player movement if UI is not active
+    if (!this.uiManager.isUIOpen()) {
+      // Handle player movement
+      if (this.isPlayerMoving && this.path.length > 0) {
+        const startTile = this.path[this.currentPathIndex];
+        const endTile = this.path[this.currentPathIndex + 1];
+
+        if (endTile) {
+          this.moveProgress += this.playerMoveSpeed * deltaTime;
+
+          if (this.moveProgress >= 1) {
+            // Reached the next tile
+            this.currentPlayerPos = endTile.clone(); // Update grid position
+            this.targetPlayerPos = endTile.clone(); // Snap interpolated position to grid
+            this.currentPathIndex++;
+            this.moveProgress = 0;
+
+            if (this.currentPathIndex >= this.path.length - 1) {
+              // Reached the end of the path
+              this.isPlayerMoving = false;
+              this.path = []; // Clear path
+              this.selectedCell = null; // Clear selected cell
+
+              // After movement, check for pending interaction
+              if (this.pendingInteractionTarget) {
+                // Ensure player is adjacent to the target before interacting
+                if (this.currentPlayerPos.manhattanDistance(this.pendingInteractionTarget.position) <= 1) {
+                  this.onInteract(this.pendingInteractionTarget);
+                } else {
+                  console.warn('Player arrived at target but not adjacent to interaction object.');
+                }
+                this.pendingInteractionTarget = null; // Clear pending interaction
+              }
+            }
+          } else {
+            // Interpolate position between start and end tiles
+            this.targetPlayerPos.x = startTile.x + (endTile.x - startTile.x) * this.moveProgress;
+            this.targetPlayerPos.y = startTile.y + (endTile.y - startTile.y) * this.moveProgress;
+          }
+        } else {
+          // Should not happen if path is valid, but as a safeguard
+          this.isPlayerMoving = false;
+          this.path = [];
+          this.selectedCell = null;
+          this.pendingInteractionTarget = null; // Clear pending interaction
+        }
+      }
+    }
+
 
     // Update AI system
     this.aiSystem.update(this.currentPlayerPos);
@@ -227,6 +616,19 @@ export class GameEngine {
   addMapObject(object: MapObject): void {
     this.mapObjects.set(object.id, object);
 
+    // Create and add PixiJS sprite for the map object
+    if (object.sprite) {
+      const texture = this.renderer.getTexture(object.sprite);
+      if (texture) {
+        object.pixiSprite = new PIXI.Sprite(texture);
+        object.pixiSprite.width = this.renderer.tileSize;
+        object.pixiSprite.height = this.renderer.tileSize;
+        this.renderer.getSpriteContainer().addChild(object.pixiSprite);
+      } else {
+        console.warn(`Texture for map object "${object.id}" with sprite "${object.sprite}" not found.`);
+      }
+    }
+
     if (object instanceof NPC || object instanceof Enemy) {
       this.aiSystem.registerNPC(object);
     }
@@ -237,10 +639,17 @@ export class GameEngine {
    */
   removeMapObject(objectId: string): void {
     const object = this.mapObjects.get(objectId);
-    if (object instanceof NPC || object instanceof Enemy) {
-      this.aiSystem.unregisterNPC(objectId);
+    if (object) {
+      if (object.pixiSprite) {
+        this.renderer.getSpriteContainer().removeChild(object.pixiSprite);
+        object.pixiSprite.destroy(); // Destroy the PixiJS sprite to free memory
+        object.pixiSprite = null;
+      }
+      if (object instanceof NPC || object instanceof Enemy) {
+        this.aiSystem.unregisterNPC(objectId);
+      }
+      this.mapObjects.delete(objectId);
     }
-    this.mapObjects.delete(objectId);
   }
 
   /**
@@ -255,6 +664,20 @@ export class GameEngine {
    */
   getAllMapObjects(): MapObject[] {
     return Array.from(this.mapObjects.values());
+  }
+
+  /**
+   * Get player's inventory
+   */
+  getInventory(): Inventory {
+    return this.inventory;
+  }
+
+  /**
+   * Get UI Manager
+   */
+  getUIManager(): UIManager {
+    return this.uiManager;
   }
 
   /**
@@ -284,6 +707,7 @@ export class GameEngine {
       saveFile.gameState.playerPosition.x,
       saveFile.gameState.playerPosition.y
     );
+    this.targetPlayerPos = this.currentPlayerPos.clone(); // Also update interpolated position
 
     return true;
   }
@@ -315,6 +739,7 @@ export class GameEngine {
       saveFile.gameState.playerPosition.x,
       saveFile.gameState.playerPosition.y
     );
+    this.targetPlayerPos = this.currentPlayerPos.clone(); // Also update interpolated position
 
     return true;
   }
@@ -355,6 +780,13 @@ export class GameEngine {
   }
 
   /**
+   * Get keyboard handler for custom event binding
+   */
+  getKeyboardHandler(): KeyboardHandler {
+    return this.keyboardHandler;
+  }
+
+  /**
    * Get renderer
    */
   getRenderer(): Renderer {
@@ -362,16 +794,17 @@ export class GameEngine {
   }
 
   /**
-   * Get current player position
+   * Get current player position (grid-aligned)
    */
   getPlayerPosition(): Vector {
     return this.currentPlayerPos;
   }
 
   /**
-   * Set player position
+   * Set player position (grid-aligned)
    */
   setPlayerPosition(pos: Vector): void {
     this.currentPlayerPos = pos;
+    this.targetPlayerPos = pos.clone(); // Keep interpolated position in sync
   }
 }
