@@ -4,12 +4,19 @@ import { GameMap, MapLoader } from './map/MapLayer';
 import { AStarPathfinder } from './algorithms/AStar';
 import { FieldOfView } from './algorithms/FieldOfView';
 import { FogOfWar } from './algorithms/FogOfWar';
+import { NPCAISystem } from './algorithms/NPCAISystem';
+import { NPC, Enemy, MapObject } from './core/MapObject';
+import { TileRegistry } from './core/TileRegistry';
 import { Renderer } from './render/Renderer';
 import { MouseHandler, MouseEventType } from './interaction/MouseHandler';
+import { AnimationLibrary } from './render/Animation';
+import { ParticleSystem } from './render/Particles';
+import { SaveLoadManager, QuickSaveManager } from './system/SaveLoadManager';
+import { LevelEditor } from './editor/LevelEditor';
 
 /**
  * Main Game Engine
- * Orchestrates rendering, algorithms, and interaction
+ * Orchestrates all game systems
  */
 export class GameEngine {
   private map: GameMap | null = null;
@@ -18,11 +25,21 @@ export class GameEngine {
   private mouseHandler: MouseHandler;
   private pathfinder: AStarPathfinder;
   private fov: FieldOfView;
-
   private fogOfWar: FogOfWar;
+  private aiSystem: NPCAISystem;
+  private animationLibrary: AnimationLibrary;
+  private particleSystem: ParticleSystem;
+  private saveLoadManager: SaveLoadManager;
+  private quickSaveManager: QuickSaveManager;
+  private editor: LevelEditor;
+
   private currentPlayerPos: Vector = new Vector(5, 5);
   private selectedCell: Vector | null = null;
   private path: Vector[] = [];
+  private mapObjects: Map<string, MapObject> = new Map();
+  private gameTime: number = 0;
+  private isRunning: boolean = false;
+  private lastFrameTime: number = 0;
 
   constructor(canvas: HTMLCanvasElement, canvasWidth: number, canvasHeight: number) {
     this.grid = new Grid(100, 100);
@@ -31,8 +48,18 @@ export class GameEngine {
     this.pathfinder = new AStarPathfinder(this.grid);
     this.fov = new FieldOfView(this.grid);
     this.fogOfWar = new FogOfWar(100, 100, this.fov);
+    this.aiSystem = new NPCAISystem(this.grid);
+    this.animationLibrary = new AnimationLibrary();
+    this.particleSystem = new ParticleSystem();
+    this.saveLoadManager = new SaveLoadManager();
+    this.quickSaveManager = new QuickSaveManager();
+    this.editor = new LevelEditor();
+
+    // Initialize tile registry
+    TileRegistry.initialize();
 
     this.setupEventHandlers();
+    this.startGameLoop();
   }
 
   /**
@@ -145,9 +172,179 @@ export class GameEngine {
   /**
    * Update game state
    */
-  update(_deltaTime: number): void {
+  private update(deltaTime: number): void {
+    if (!this.isRunning) return;
+
+    this.gameTime += deltaTime;
+
+    // Update AI system
+    this.aiSystem.update(this.currentPlayerPos);
+
+    // Update animations
+    for (const _obj of this.mapObjects.values()) {
+      // Animation updates handled by individual controllers
+    }
+
+    // Update particles
+    this.particleSystem.update(deltaTime);
+
     // Game logic updates
     this.render();
+  }
+
+  /**
+   * Start game loop
+   */
+  private startGameLoop(): void {
+    this.isRunning = true;
+    this.lastFrameTime = Date.now();
+
+    const gameLoop = () => {
+      if (!this.isRunning) return;
+
+      const currentTime = Date.now();
+      const deltaTime = currentTime - this.lastFrameTime;
+      this.lastFrameTime = currentTime;
+
+      this.update(deltaTime);
+
+      requestAnimationFrame(gameLoop);
+    };
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  /**
+   * Stop game loop
+   */
+  stopGameLoop(): void {
+    this.isRunning = false;
+  }
+
+  /**
+   * Add map object
+   */
+  addMapObject(object: MapObject): void {
+    this.mapObjects.set(object.id, object);
+
+    if (object instanceof NPC || object instanceof Enemy) {
+      this.aiSystem.registerNPC(object);
+    }
+  }
+
+  /**
+   * Remove map object
+   */
+  removeMapObject(objectId: string): void {
+    const object = this.mapObjects.get(objectId);
+    if (object instanceof NPC || object instanceof Enemy) {
+      this.aiSystem.unregisterNPC(objectId);
+    }
+    this.mapObjects.delete(objectId);
+  }
+
+  /**
+   * Get map object
+   */
+  getMapObject(objectId: string): MapObject | undefined {
+    return this.mapObjects.get(objectId);
+  }
+
+  /**
+   * Get all map objects
+   */
+  getAllMapObjects(): MapObject[] {
+    return Array.from(this.mapObjects.values());
+  }
+
+  /**
+   * Save game
+   */
+  saveGame(slot: number): boolean {
+    const gameState = SaveLoadManager.createGameState(
+      this.currentPlayerPos,
+      this.map?.getName() || 'Unknown',
+      this.aiSystem.getAllNPCs(),
+      this.getAllMapObjects(),
+      null,
+      this.fogOfWar.getFogMap() as any
+    );
+
+    return this.saveLoadManager.saveGame(slot, gameState);
+  }
+
+  /**
+   * Load game
+   */
+  loadGame(slot: number): boolean {
+    const saveFile = this.saveLoadManager.loadGame(slot);
+    if (!saveFile) return false;
+
+    this.currentPlayerPos = new Vector(
+      saveFile.gameState.playerPosition.x,
+      saveFile.gameState.playerPosition.y
+    );
+
+    return true;
+  }
+
+  /**
+   * Quick save
+   */
+  quickSave(): boolean {
+    const gameState = SaveLoadManager.createGameState(
+      this.currentPlayerPos,
+      this.map?.getName() || 'Unknown',
+      this.aiSystem.getAllNPCs(),
+      this.getAllMapObjects(),
+      null,
+      this.fogOfWar.getFogMap() as any
+    );
+
+    return this.quickSaveManager.quickSave(gameState);
+  }
+
+  /**
+   * Quick load
+   */
+  quickLoad(): boolean {
+    const saveFile = this.quickSaveManager.quickLoad();
+    if (!saveFile) return false;
+
+    this.currentPlayerPos = new Vector(
+      saveFile.gameState.playerPosition.x,
+      saveFile.gameState.playerPosition.y
+    );
+
+    return true;
+  }
+
+  /**
+   * Get editor
+   */
+  getEditor(): LevelEditor {
+    return this.editor;
+  }
+
+  /**
+   * Get AI system
+   */
+  getAISystem(): NPCAISystem {
+    return this.aiSystem;
+  }
+
+  /**
+   * Get particle system
+   */
+  getParticleSystem(): ParticleSystem {
+    return this.particleSystem;
+  }
+
+  /**
+   * Get animation library
+   */
+  getAnimationLibrary(): AnimationLibrary {
+    return this.animationLibrary;
   }
 
   /**
