@@ -1,4 +1,5 @@
 import { Vector } from './Vector';
+import * as PIXI from 'pixi.js'; // Import PIXI for the sprite type
 
 /**
  * Map object types
@@ -12,6 +13,7 @@ export enum MapObjectType {
   LIGHT_SOURCE = 'light',
   TRAP = 'trap',
   TELEPORT = 'teleport',
+  ITEM = 'item', // Added MapObjectType.ITEM
 }
 
 /**
@@ -25,6 +27,7 @@ export class MapObject {
   properties: Map<string, any> = new Map();
   sprite: string;
   isActive: boolean = true;
+  pixiSprite: PIXI.Sprite | null = null; // New: Holds the actual PixiJS sprite instance
 
   constructor(
     id: string,
