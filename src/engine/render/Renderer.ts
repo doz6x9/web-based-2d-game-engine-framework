@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { Vector } from '../core/Vector';
 import { GameMap, MapLayer } from '../map/MapLayer';
 import { FogOfWar, FogState } from '../algorithms/FogOfWar';
+import { Particle } from './Particles';
 
 /**
  * Camera for view management
@@ -86,6 +87,7 @@ export class Renderer {
   private fovContainer!: PIXI.Container; // Initialized in init()
   private markerContainer!: PIXI.Container; // Initialized in init()
   private spriteContainer!: PIXI.Container; // Initialized in init()
+  private particleContainer!: PIXI.Container; // Initialized in init()
 
   // Reusable Graphics objects for transient drawing
   private fogGraphics!: PIXI.Graphics;
@@ -111,6 +113,7 @@ export class Renderer {
     this.fovContainer = new PIXI.Container();
     this.markerContainer = new PIXI.Container();
     this.spriteContainer = new PIXI.Container();
+    this.particleContainer = new PIXI.Container();
 
     // Initialize reusable Graphics objects and add them to their containers
     this.fogGraphics = new PIXI.Graphics();
@@ -126,6 +129,7 @@ export class Renderer {
     this.stage.addChild(this.fogContainer);
     this.stage.addChild(this.fovContainer);
     this.stage.addChild(this.spriteContainer);
+    this.stage.addChild(this.particleContainer);
     this.stage.addChild(this.markerContainer);
 
     // Initialize tile colors
@@ -204,6 +208,7 @@ export class Renderer {
       this.stage.addChild(this.fogContainer);
       this.stage.addChild(this.fovContainer);
       this.stage.addChild(this.spriteContainer);
+      this.stage.addChild(this.particleContainer);
       this.stage.addChild(this.markerContainer);
     }
   }
@@ -314,6 +319,27 @@ export class Renderer {
    */
   clearMarkers(): void {
     this.markerGraphics.clear();
+  }
+
+  /**
+   * Render particles to the screen
+   */
+  renderParticles(particles: Particle[]): void {
+    // Clear previous particle graphics
+    this.particleContainer.removeChildren();
+
+    for (const particle of particles) {
+      const graphics = new PIXI.Graphics();
+      graphics
+        .circle(0, 0, particle.size)
+        .fill({ color: particle.color, alpha: particle.alpha });
+
+      graphics.x = particle.position.x * this.tileSize + this.tileSize / 2;
+      graphics.y = particle.position.y * this.tileSize + this.tileSize / 2;
+      graphics.rotation = particle.rotation;
+
+      this.particleContainer.addChild(graphics);
+    }
   }
 
   /**

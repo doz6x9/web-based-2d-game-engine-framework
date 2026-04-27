@@ -1,64 +1,56 @@
 import './styles/main.scss';
 import { GameEngine } from './engine/GameEngine';
-import { Item, ItemType } from './engine/core/Item';
-import { Vector } from './engine/core/Vector';
 
+/**
+ * Initialize the game
+ */
 async function initializeGame() {
-  // Initialize the game engine
+  // Get the canvas element
   const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+  if (!canvas) {
+    console.error('Canvas element not found!');
+    return;
+  }
+
   const gameWidth = 1280;
   const gameHeight = 720;
 
-  const engine = new GameEngine(); // Instantiate without parameters
+  // Create and initialize the game engine
+  const engine = new GameEngine();
 
-  // Initialize the engine (including renderer, mouse handler, UI manager)
   try {
+    // Initialize the engine (including renderer, mouse handler, UI manager, asset loading, map loading)
     await engine.init(canvas, gameWidth, gameHeight);
     console.log('GameEngine initialized successfully.');
-  } catch (error) {
-    console.error('Failed to initialize GameEngine:', error);
-    return;
-  }
 
-  // Load visual assets
-  try {
-    await engine.getRenderer().loadAssets([
-      { id: 'hero', path: '/src/assets/hero.png' },
-      { id: 'potion', path: '/src/assets/potion.png' }
-    ]);
-    console.log('Visual assets loaded successfully.');
-  } catch (error) {
-    console.error('Failed to load visual assets:', error);
-    return;
-  }
+    // Initialize the demo scene (game-specific content)
+    engine.initializeDemoScene();
+    console.log('Demo scene initialized successfully.');
 
-  // Add a demo item to the map
-  const healthPotion = new Item(
-    'health_potion',
-    'Health Potion',
-    'Restores a small amount of health.',
-    'potion',
-    ItemType.CONSUMABLE,
-    true,
-    5,
-    1
-  );
-  engine.addMapObject(healthPotion.toMapObject(new Vector(3, 3))); // Place at (3,3)
+    // Update UI with player position
+    setInterval(() => {
+      const playerPos = engine.getPlayerPosition();
+      const coordsElement = document.getElementById('playerCoords');
+      if (coordsElement) {
+        coordsElement.textContent = `${playerPos.x}, ${playerPos.y}`;
+      }
+    }, 100);
 
-  // Update UI with player position
-  setInterval(() => {
-    const playerPos = engine.getPlayerPosition();
-    document.getElementById('playerCoords')!.textContent = `${playerPos.x}, ${playerPos.y}`;
-  }, 100);
-
-  // Update UI with mouse position
-  const mouseHandler = engine.getMouseHandler();
-  mouseHandler.on(
-    'move' as any,
-    (pos) => {
-      document.getElementById('mouseCoords')!.textContent = `${pos.x}, ${pos.y}`;
+    // Update UI with mouse position
+    const mouseHandler = engine.getMouseHandler();
+    if (mouseHandler) {
+      mouseHandler.on('move' as any, (pos) => {
+        const mouseCoordsElement = document.getElementById('mouseCoords');
+        if (mouseCoordsElement) {
+          mouseCoordsElement.textContent = `${pos.x}, ${pos.y}`;
+        }
+      });
     }
-  );
+  } catch (error) {
+    console.error('Failed to initialize game:', error);
+    return;
+  }
 }
 
+// Start the game when the page loads
 initializeGame();

@@ -11,7 +11,7 @@ import { Renderer } from './render/Renderer';
 import { MouseHandler, MouseEventType } from './interaction/MouseHandler';
 import { KeyboardHandler, KeyboardEventType } from './interaction/KeyboardHandler';
 import { AnimationLibrary } from './render/Animation';
-import { ParticleSystem } from './render/Particles';
+import { ParticleSystem, ParticlePresets } from './render/Particles';
 import { SaveLoadManager, QuickSaveManager } from './system/SaveLoadManager';
 import { LevelEditor } from './editor/LevelEditor';
 import { DialogueLine } from './system/DialogueManager';
@@ -137,12 +137,32 @@ export class GameEngine {
       throw error; // Propagate error
     }
 
+    // Initialize event handlers and start the game loop
+    this.setupEventHandlers();
+    this.startGameLoop();
+  }
+
+  /**
+   * Initialize demo scene (game-specific setup).
+   * This allows the engine to remain agnostic to the game being played.
+   */
+  initializeDemoScene(): void {
     // Add a demo NPC
-    const npc = new NPC('npc_01', new Vector(7, 2), 'hero'); // Reusing 'hero' sprite for now
+    const npc = new NPC('npc_01', new Vector(7, 2), 'hero');
     this.addMapObject(npc);
 
-    // Add a demo item to the map (Health Potion 1)
-    const healthPotion1 = new Item(
+    // ===== ROOM 1 (Starting Room) =====
+    // Add a Chest (InteractiveObject) in the starting room
+    const chest = new InteractiveObject('chest_01', MapObjectType.CHEST, new Vector(8, 8), 'chest');
+    chest.setProperty('isOpen', false);
+    chest.setProperty('contents', [
+      new Item('mana_potion_1', 'Mana Potion', 'Restores a small amount of mana.', 'mana_potion', ItemType.CONSUMABLE, true, 3, 1),
+      new Item('basic_sword', 'Basic Sword', 'A simple sword.', 'sword', ItemType.WEAPON),
+    ]);
+    this.addMapObject(chest);
+
+    // Add potions scattered in Room 1
+    const potion1 = new Item(
       'health_potion_1',
       'Health Potion',
       'Restores a small amount of health.',
@@ -152,10 +172,9 @@ export class GameEngine {
       5,
       1
     );
-    this.addMapObject(healthPotion1.toMapObject(new Vector(3, 3))); // Place at (3,3)
+    this.addMapObject(potion1.toMapObject(new Vector(4, 5)));
 
-    // Add a demo item to the map (Health Potion 2)
-    const healthPotion2 = new Item(
+    const potion2 = new Item(
       'health_potion_2',
       'Health Potion',
       'Restores a small amount of health.',
@@ -165,9 +184,63 @@ export class GameEngine {
       5,
       1
     );
-    this.addMapObject(healthPotion2.toMapObject(new Vector(4, 4))); // Place at (4,4)
+    this.addMapObject(potion2.toMapObject(new Vector(11, 10)));
 
-    // Add a Key item to the map
+    // ===== CORRIDOR 1 =====
+    const sword1 = new Item(
+      'iron_sword_1',
+      'Iron Sword',
+      'A sturdy iron blade.',
+      'sword',
+      ItemType.WEAPON
+    );
+    this.addMapObject(sword1.toMapObject(new Vector(17, 8)));
+
+    // ===== ROOM 2 (Middle Room with Goblin) =====
+    // Add an Enemy (Goblin)
+    const goblin = new Enemy('goblin_01', new Vector(26, 8), 'goblin');
+    goblin.health = 30;
+    goblin.maxHealth = 30;
+    goblin.attackPower = 5;
+    this.addMapObject(goblin);
+
+    // Add potions in Room 2
+    const potion3 = new Item(
+      'mana_potion_2',
+      'Mana Potion',
+      'Restores a small amount of mana.',
+      'mana_potion',
+      ItemType.CONSUMABLE,
+      true,
+      3,
+      1
+    );
+    this.addMapObject(potion3.toMapObject(new Vector(24, 5)));
+
+    const potion4 = new Item(
+      'health_potion_3',
+      'Health Potion',
+      'Restores a small amount of health.',
+      'potion',
+      ItemType.CONSUMABLE,
+      true,
+      5,
+      1
+    );
+    this.addMapObject(potion4.toMapObject(new Vector(29, 12)));
+
+    // Add sword in Room 2
+    const sword2 = new Item(
+      'steel_sword_1',
+      'Steel Sword',
+      'A well-forged steel blade.',
+      'sword',
+      ItemType.WEAPON
+    );
+    this.addMapObject(sword2.toMapObject(new Vector(21, 10)));
+
+    // ===== CORRIDOR 2 =====
+    // Add a Gate Key item in corridor
     const gateKey = new Item(
       'gate_key',
       'Rusty Key',
@@ -175,33 +248,71 @@ export class GameEngine {
       'key',
       ItemType.KEY_ITEM
     );
-    this.addMapObject(gateKey.toMapObject(new Vector(1, 1))); // Place at (1,1)
+    this.addMapObject(gateKey.toMapObject(new Vector(35, 8)));
 
+    // ===== ROOM 3 (Exit Room with Gate) =====
     // Add a Gate (InteractiveObject)
-    const gate = new InteractiveObject('gate_01', MapObjectType.DOOR, new Vector(5, 2), 'gate');
+    const gate = new InteractiveObject('gate_01', MapObjectType.DOOR, new Vector(45, 8), 'gate');
     gate.setProperty('isOpen', false);
     gate.setProperty('keyId', 'gate_key'); // Key required to open
     this.addMapObject(gate);
-    this.grid.setCellType(10, 30, CellType.WALL); // Make gate initially unwalkable
 
-    // Add a Chest (InteractiveObject)
-    const chest = new InteractiveObject('chest_01', MapObjectType.CHEST, new Vector(8, 8), 'chest');
-    chest.setProperty('isOpen', false);
-    chest.setProperty('contents', [
-      new Item('mana_potion_1', 'Mana Potion', 'Restores a small amount of mana.', 'mana_potion', ItemType.CONSUMABLE, true, 3, 1),
-      new Item('basic_sword', 'Basic Sword', 'A simple sword.', 'sword', ItemType.WEAPON),
-    ]);
-    this.addMapObject(chest);
+    // Add potions in Room 3
+    const potion5 = new Item(
+      'health_potion_4',
+      'Health Potion',
+      'Restores a small amount of health.',
+      'potion',
+      ItemType.CONSUMABLE,
+      true,
+      5,
+      1
+    );
+    this.addMapObject(potion5.toMapObject(new Vector(41, 6)));
 
-    // Add an Enemy (Goblin)
-    const goblin = new Enemy('goblin_01', new Vector(3, 7), 'goblin');
-    goblin.health = 30;
-    goblin.maxHealth = 30;
-    goblin.attackPower = 5;
-    this.addMapObject(goblin);
+    // ===== LOWER CHAMBER (Big exploration area) =====
+    // Scatter items in the lower chamber for exploration
+    const sword3 = new Item(
+      'golden_sword_1',
+      'Golden Sword',
+      'A gleaming golden blade.',
+      'sword',
+      ItemType.WEAPON
+    );
+    this.addMapObject(sword3.toMapObject(new Vector(10, 28)));
 
-    this.setupEventHandlers();
-    this.startGameLoop();
+    const potion6 = new Item(
+      'mana_potion_3',
+      'Mana Potion',
+      'Restores a small amount of mana.',
+      'mana_potion',
+      ItemType.CONSUMABLE,
+      true,
+      3,
+      1
+    );
+    this.addMapObject(potion6.toMapObject(new Vector(26, 26)));
+
+    const potion7 = new Item(
+      'health_potion_5',
+      'Health Potion',
+      'Restores a small amount of health.',
+      'potion',
+      ItemType.CONSUMABLE,
+      true,
+      5,
+      1
+    );
+    this.addMapObject(potion7.toMapObject(new Vector(42, 30)));
+
+    const sword4 = new Item(
+      'diamond_sword_1',
+      'Diamond Sword',
+      'A precious diamond-encrusted weapon.',
+      'sword',
+      ItemType.WEAPON
+    );
+    this.addMapObject(sword4.toMapObject(new Vector(48, 25)));
   }
 
   /**
@@ -370,8 +481,19 @@ export class GameEngine {
           enemy.takeDamage(damage);
           console.log(`${enemy.id} took ${damage} damage. Health: ${enemy.health}/${enemy.maxHealth}`);
 
+          // Trigger blood particle effect at enemy position
+          this.particleSystem.createEmitter(
+            enemy.position.clone(),
+            ParticlePresets.BLOOD
+          );
+
           if (!enemy.isAlive()) {
             console.log(`${enemy.id} defeated!`);
+            // Trigger additional particle effect when enemy is defeated
+            this.particleSystem.createEmitter(
+              enemy.position.clone(),
+              ParticlePresets.EXPLOSION
+            );
             this.removeMapObject(enemy.id);
             this.render();
           } else {
@@ -503,6 +625,10 @@ export class GameEngine {
 
     // Update player health UI
     this.uiManager.updatePlayerHealth(this.playerHealth, this.playerMaxHealth);
+
+    // Render particles
+    const allParticles = this.particleSystem.getAllParticles();
+    this.renderer.renderParticles(allParticles);
 
     // Center camera on player (using interpolated position for smooth camera)
     this.renderer.getCamera().centerOn(this.targetPlayerPos);
