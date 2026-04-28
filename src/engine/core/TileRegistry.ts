@@ -98,6 +98,47 @@ export class TileRegistry {
       name: 'Mud',
       color: 0x8b7355,
     });
+
+    // New environmental tiles
+    this.registerTile('tall_grass', {
+      cost: 1.5,
+      walkable: true,
+      sprite: 'tall_grass_tile',
+      name: 'Tall Grass',
+      color: 0x2d5a1a,
+    });
+
+    this.registerTile('shallow_water', {
+      cost: 2,
+      walkable: true,
+      sprite: 'shallow_water_tile',
+      name: 'Shallow Water',
+      color: 0x4a90e2,
+    });
+
+    this.registerTile('deep_water', {
+      cost: 0,
+      walkable: false,
+      sprite: 'deep_water_tile',
+      name: 'Deep Water',
+      color: 0x1d4a7d,
+    });
+
+    this.registerTile('stone_wall', {
+      cost: 0,
+      walkable: false,
+      sprite: 'stone_wall_tile',
+      name: 'Stone Wall',
+      color: 0x696969,
+    });
+
+    this.registerTile('wood_wall', {
+      cost: 0,
+      walkable: false,
+      sprite: 'wood_wall_tile',
+      name: 'Wood Wall',
+      color: 0x8b4513,
+    });
   }
 
   /**

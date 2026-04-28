@@ -10,15 +10,26 @@ export enum MouseEventType {
 }
 
 /**
+ * Interface for camera coordinate conversion
+ */
+export interface ICamera {
+  screenToWorld(screenX: number, screenY: number): Vector;
+}
+
+/**
  * Mouse interaction handler
  */
 export class MouseHandler {
   private canvas: HTMLCanvasElement;
+  private camera: ICamera | null = null;
+  private tileSize: number = 32;
   private mousePosition: Vector = new Vector(0, 0);
   private callbacks: Map<MouseEventType, Array<(pos: Vector) => void>> = new Map();
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, camera?: ICamera, tileSize?: number) {
     this.canvas = canvas;
+    this.camera = camera || null;
+    if (tileSize) this.tileSize = tileSize;
     this.setupEventListeners();
   }
 
@@ -48,15 +59,21 @@ export class MouseHandler {
 
   /**
    * Get mouse position in grid coordinates
+   * Accounts for camera offset if camera is provided
    */
   private getMouseGridPosition(event: MouseEvent): Vector {
     const rect = this.canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const screenX = event.clientX - rect.left;
+    const screenY = event.clientY - rect.top;
 
-    const tileSize = 32; // Should match renderer
-    const gridX = Math.floor(x / tileSize);
-    const gridY = Math.floor(y / tileSize);
+    // If camera is available, use it for proper world-space conversion
+    if (this.camera) {
+      return this.camera.screenToWorld(screenX, screenY);
+    }
+
+    // Fallback to simple screen-to-grid conversion (no camera offset)
+    const gridX = Math.floor(screenX / this.tileSize);
+    const gridY = Math.floor(screenY / this.tileSize);
 
     return new Vector(gridX, gridY);
   }

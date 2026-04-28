@@ -128,6 +128,15 @@ export class DialogueManager {
   }
 
   /**
+   * Skip the entire dialogue sequence.
+   */
+  skip(): void {
+    if (this.isActive) {
+      this.endDialogue();
+    }
+  }
+
+  /**
    * Clean up event listeners.
    */
   destroy(): void {

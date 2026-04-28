@@ -5,35 +5,89 @@ import { Item } from '../core/Item';
 
 export class UIManager {
   private dialogueManager: DialogueManager;
-  private keyboardHandler: KeyboardHandler; // Still needed for DialogueManager constructor, but not for inventory toggle
+  private keyboardHandler: KeyboardHandler;
   private inventory: Inventory;
 
   private inventoryPanel: HTMLElement | null;
   private inventoryList: HTMLElement | null;
   private inventoryButton: HTMLElement | null;
-  private playerHealthElement: HTMLElement | null; // New: Player Health display element
+  private playerHealthElement: HTMLElement | null;
+  
+  // HUD elements
+  private fpsCounter: HTMLElement | null;
+  private levelDisplay: HTMLElement | null;
+  private pauseButton: HTMLElement | null;
+  private saveButton: HTMLElement | null;
+  private loadButton: HTMLElement | null;
+  private skipDialogueButton: HTMLElement | null;
 
   private isInventoryOpen: boolean = false;
+  
+  // Callback functions for HUD buttons
+  private onPauseCallback: (() => void) | null = null;
+  private onSaveCallback: (() => void) | null = null;
+  private onLoadCallback: (() => void) | null = null;
+  private onSkipDialogueCallback: (() => void) | null = null;
+  
+  // FPS tracking
+  private frameCount: number = 0;
+  private lastFpsUpdateTime: number = Date.now();
+  private currentFps: number = 0;
 
   constructor(keyboardHandler: KeyboardHandler, inventory: Inventory) {
     this.keyboardHandler = keyboardHandler;
     this.inventory = inventory;
-    this.dialogueManager = new DialogueManager(keyboardHandler); // DialogueManager still uses keyboardHandler for its constructor
+    this.dialogueManager = new DialogueManager(keyboardHandler);
 
     this.inventoryPanel = document.getElementById('inventoryPanel');
     this.inventoryList = document.getElementById('inventoryList');
     this.inventoryButton = document.getElementById('inventoryButton');
-    this.playerHealthElement = document.getElementById('playerHealth'); // Get player health element
+    this.playerHealthElement = document.getElementById('playerHealth');
+    
+    // Initialize HUD elements
+    this.fpsCounter = document.getElementById('fpsCounter');
+    this.levelDisplay = document.getElementById('levelDisplay');
+    this.pauseButton = document.getElementById('pauseButton');
+    this.saveButton = document.getElementById('saveButton');
+    this.loadButton = document.getElementById('loadButton');
+    this.skipDialogueButton = document.getElementById('skipDialogueButton');
 
     this.setupEventHandlers();
   }
 
   private setupEventHandlers(): void {
-    // Add click listener for the inventory button
+    // Inventory button
     if (this.inventoryButton) {
       this.inventoryButton.addEventListener('click', () => {
-        if (this.isDialogueActive()) return; // Don't open inventory during dialogue
+        if (this.isDialogueActive()) return;
         this.toggleInventory();
+      });
+    }
+    
+    // HUD Buttons
+    if (this.pauseButton) {
+      this.pauseButton.addEventListener('click', () => {
+        if (this.onPauseCallback) this.onPauseCallback();
+      });
+    }
+    
+    if (this.saveButton) {
+      this.saveButton.addEventListener('click', () => {
+        if (this.onSaveCallback) this.onSaveCallback();
+      });
+    }
+    
+    if (this.loadButton) {
+      this.loadButton.addEventListener('click', () => {
+        if (this.onLoadCallback) this.onLoadCallback();
+      });
+    }
+    
+    if (this.skipDialogueButton) {
+      this.skipDialogueButton.addEventListener('click', () => {
+        if (this.onSkipDialogueCallback) this.onSkipDialogueCallback();
+        // Also try to skip dialogue via the dialogue manager
+        this.dialogueManager.skip();
       });
     }
   }
@@ -94,6 +148,72 @@ export class UIManager {
   updatePlayerHealth(currentHealth: number, maxHealth: number): void {
     if (this.playerHealthElement) {
       this.playerHealthElement.textContent = `${currentHealth}/${maxHealth}`;
+    }
+  }
+
+  /**
+   * Update FPS counter display
+   * Call this every frame from the game loop
+   */
+  updateFpsCounter(deltaTime: number): void {
+    this.frameCount++;
+    const currentTime = Date.now();
+    const elapsed = currentTime - this.lastFpsUpdateTime;
+    
+    if (elapsed >= 1000) { // Update FPS every second
+      this.currentFps = Math.round((this.frameCount * 1000) / elapsed);
+      if (this.fpsCounter) {
+        this.fpsCounter.textContent = `FPS: ${this.currentFps}`;
+      }
+      this.frameCount = 0;
+      this.lastFpsUpdateTime = currentTime;
+    }
+  }
+
+  /**
+   * Update level display
+   */
+  updateLevelDisplay(levelNumber: number, levelName: string): void {
+    if (this.levelDisplay) {
+      this.levelDisplay.textContent = `Level ${levelNumber}: ${levelName}`;
+    }
+  }
+
+  /**
+   * Register pause button callback
+   */
+  onPause(callback: () => void): void {
+    this.onPauseCallback = callback;
+  }
+
+  /**
+   * Register save button callback
+   */
+  onSave(callback: () => void): void {
+    this.onSaveCallback = callback;
+  }
+
+  /**
+   * Register load button callback
+   */
+  onLoad(callback: () => void): void {
+    this.onLoadCallback = callback;
+  }
+
+  /**
+   * Register skip dialogue button callback
+   */
+  onSkipDialogue(callback: () => void): void {
+    this.onSkipDialogueCallback = callback;
+  }
+
+  /**
+   * Update pause button state
+   */
+  setPauseButtonState(isPaused: boolean): void {
+    if (this.pauseButton) {
+      this.pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
+      this.pauseButton.style.backgroundColor = isPaused ? '#51cf66' : '#ff6b6b';
     }
   }
 

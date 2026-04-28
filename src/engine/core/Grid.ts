@@ -10,6 +10,12 @@ export enum CellType {
   SWAMP = 3,
   ROAD = 4,
   WATER = 5,
+  TALL_GRASS = 6,
+  TREE = 7,
+  STONE_WALL = 8,
+  WOOD_WALL = 9,
+  SHALLOW_WATER = 10,
+  DEEP_WATER = 11,
 }
 
 /**

@@ -66,6 +66,10 @@ export class GameEngine {
   private gameTime: number = 0;
   private isRunning: boolean = false;
   private lastFrameTime: number = 0;
+  
+  // Level progression
+  private currentLevel: number = 1;
+  private levelMap: Map<number, { mapUrl: string; spawnPoint: Vector }> = new Map();
 
   constructor() {
     this.grid = new Grid(100, 100); // Default grid size, will be updated by map
@@ -83,6 +87,9 @@ export class GameEngine {
 
     // Initialize tile registry
     TileRegistry.initialize();
+    
+    // Set up level progression
+    this.setupLevelMap();
   }
 
   /**
@@ -92,14 +99,15 @@ export class GameEngine {
     // Initialize renderer after canvas is available
     await this.renderer.init(canvas, canvasWidth, canvasHeight, this.grid.getWidth(), this.grid.getHeight());
 
-    // Initialize MouseHandler and UIManager now that canvas and renderer are ready
-    this.mouseHandler = new MouseHandler(canvas);
+    // Initialize MouseHandler with camera for proper coordinate conversion
+    this.mouseHandler = new MouseHandler(canvas, this.renderer.getCamera(), this.renderer.tileSize);
     this.uiManager = new UIManager(this.keyboardHandler, this.inventory);
     this.fogOfWar = new FogOfWar(this.grid.getWidth(), this.grid.getHeight(), this.fov); // Initialize FogOfWar here
 
     // Load visual assets BEFORE loading map or creating objects that use them
     try {
       await this.renderer.loadAssets([
+        // Characters and objects
         { id: 'hero', path: '/src/assets/hero.png' },
         { id: 'potion', path: '/src/assets/potion.png' },
         { id: 'gate', path: '/src/assets/gate.png' },
@@ -110,6 +118,15 @@ export class GameEngine {
         { id: 'mana_potion', path: '/src/assets/mana_potion.png' },
         { id: 'goblin', path: '/src/assets/goblin.png' },
         { id: 'key', path: '/src/assets/key.png' },
+        
+        // Placeholder environmental tiles (for future sprite expansion)
+        // { id: 'grass_tile', path: '/src/assets/tiles/grass.png' },
+        // { id: 'tall_grass_tile', path: '/src/assets/tiles/tall_grass.png' },
+        // { id: 'tree_oak', path: '/src/assets/tiles/tree_oak.png' },
+        // { id: 'stone_wall_tile', path: '/src/assets/tiles/stone_wall.png' },
+        // { id: 'wood_wall_tile', path: '/src/assets/tiles/wood_wall.png' },
+        // { id: 'shallow_water_tile', path: '/src/assets/tiles/shallow_water.png' },
+        // { id: 'deep_water_tile', path: '/src/assets/tiles/deep_water.png' },
       ]);
       console.log('Visual assets loaded successfully.');
     } catch (error) {
@@ -139,6 +156,7 @@ export class GameEngine {
 
     // Initialize event handlers and start the game loop
     this.setupEventHandlers();
+    this.setupUICallbacks();
     this.startGameLoop();
   }
 
@@ -255,6 +273,7 @@ export class GameEngine {
     const gate = new InteractiveObject('gate_01', MapObjectType.DOOR, new Vector(45, 8), 'gate');
     gate.setProperty('isOpen', false);
     gate.setProperty('keyId', 'gate_key'); // Key required to open
+    gate.setProperty('requiredEnemyId', 'goblin_01'); // Goblin must be defeated to open
     this.addMapObject(gate);
 
     // Add potions in Room 3
@@ -316,6 +335,88 @@ export class GameEngine {
   }
 
   /**
+   * Set up level progression map
+   */
+  private setupLevelMap(): void {
+    // Define available levels
+    this.levelMap.set(1, { mapUrl: '/maps/test-map.json', spawnPoint: new Vector(5, 5) });
+    // Future levels can be added here:
+    // this.levelMap.set(2, { mapUrl: '/maps/level2.json', spawnPoint: new Vector(5, 5) });
+    // this.levelMap.set(3, { mapUrl: '/maps/level3.json', spawnPoint: new Vector(5, 5) });
+  }
+
+  /**
+   * Advance to the next level
+   */
+  async advanceToNextLevel(): Promise<void> {
+    const nextLevel = this.currentLevel + 1;
+    const levelData = this.levelMap.get(nextLevel);
+
+    if (levelData) {
+      this.currentLevel = nextLevel;
+      await this.loadLevel(levelData.mapUrl, levelData.spawnPoint);
+      this.uiManager.startDialogue([{ speaker: 'System', text: `Welcome to Level ${this.currentLevel}!` }]);
+    } else {
+      this.uiManager.startDialogue([{ speaker: 'System', text: 'Congratulations! You have completed all levels!' }]);
+    }
+  }
+
+  /**
+   * Clear current map and unload all map objects
+   */
+  private clearMap(): void {
+    // Remove all map objects
+    const objectIds = Array.from(this.mapObjects.keys());
+    for (const id of objectIds) {
+      this.removeMapObject(id);
+    }
+
+    // Clear path and selection
+    this.path = [];
+    this.selectedCell = null;
+    this.pendingInteractionTarget = null;
+    this.isPlayerMoving = false;
+    this.currentPathIndex = 0;
+    this.moveProgress = 0;
+
+    // Reset fog of war
+    this.fogOfWar = new FogOfWar(this.grid.getWidth(), this.grid.getHeight(), this.fov);
+
+    this.map = null;
+  }
+
+  /**
+   * Load a new level and setup player spawn position
+   */
+  async loadLevel(mapUrl: string, spawnPoint: Vector): Promise<void> {
+    console.log(`Loading level: ${mapUrl}`);
+    
+    // Clear current map
+    this.clearMap();
+
+    // Load the new map
+    await this.loadMap(mapUrl);
+
+    // Place player at spawn point
+    this.currentPlayerPos = spawnPoint.clone();
+    this.targetPlayerPos = spawnPoint.clone();
+
+    // Update UI with new level info
+    const levelNames: Map<number, string> = new Map([
+      [1, 'The Dungeon'],
+      [2, 'The Deep Caverns'],
+      [3, 'The Ancient Temple'],
+    ]);
+    const levelName = levelNames.get(this.currentLevel) || 'Unknown Level';
+    this.uiManager.updateLevelDisplay(this.currentLevel, levelName);
+
+    // Re-render
+    this.render();
+
+    console.log(`Level loaded successfully. Player spawned at (${spawnPoint.x}, ${spawnPoint.y})`);
+  }
+
+  /**
    * Load map from JSON
    */
   async loadMap(mapUrl: string): Promise<void> {
@@ -363,7 +464,43 @@ export class GameEngine {
   }
 
   /**
+   * Setup UI button callbacks
+   */
+  private setupUICallbacks(): void {
+    // Pause/Resume
+    this.uiManager.onPause(() => {
+      this.isRunning = !this.isRunning;
+      this.uiManager.setPauseButtonState(!this.isRunning);
+      console.log(this.isRunning ? 'Game resumed' : 'Game paused');
+    });
+
+    // Save game
+    this.uiManager.onSave(() => {
+      const success = this.saveGame(0); // Auto-save to slot 0
+      const message = success ? 'Game saved successfully!' : 'Failed to save game.';
+      console.log(message);
+      this.uiManager.startDialogue([{ speaker: 'System', text: message }]);
+    });
+
+    // Load game
+    this.uiManager.onLoad(() => {
+      const success = this.loadGame(0); // Auto-load from slot 0
+      const message = success ? 'Game loaded successfully!' : 'No save file found.';
+      console.log(message);
+      this.uiManager.startDialogue([{ speaker: 'System', text: message }]);
+    });
+
+    // Skip dialogue
+    this.uiManager.onSkipDialogue(() => {
+      console.log('Skip dialogue button pressed');
+      // Dialogue skip is handled by the dialogue manager
+    });
+  }
+
+  /**
    * Handle left click
+   * ONLY handles: path calculation to objects + object interaction
+   * Does NOT move to empty tiles
    */
   private onLeftClick(pos: Vector): void {
     if (this.uiManager.isUIOpen()) return; // Prevent interaction during UI activity
@@ -409,12 +546,8 @@ export class GameEngine {
         console.log(`No walkable tile adjacent to ${clickedObject.id} for interaction.`);
       }
     } else {
-      // No interactive object clicked, proceed with normal pathfinding
-      this.path = this.pathfinder.findPath(this.currentPlayerPos, pos);
-      this.isPlayerMoving = true; // Assume movement if path is found
-      this.currentPathIndex = 0;
-      this.moveProgress = 0;
-      this.targetPlayerPos = this.currentPlayerPos.clone();
+      // No interactive object clicked - just select the cell for visualization
+      console.log(`Left clicked empty tile: ${pos.x}, ${pos.y}`);
     }
     this.render();
   }
@@ -448,6 +581,20 @@ export class GameEngine {
    */
   private onMouseMove(_pos: Vector): void {
     // Can be used for highlighting cells
+  }
+
+  /**
+   * Update a map object's PIXI sprite texture based on its sprite property
+   */
+  private updateObjectSpriteTexture(object: MapObject): void {
+    if (object.pixiSprite && object.sprite) {
+      const newTexture = this.renderer.getTexture(object.sprite);
+      if (newTexture) {
+        object.pixiSprite.texture = newTexture;
+      } else {
+        console.warn(`Texture for sprite "${object.sprite}" not found while updating object "${object.id}".`);
+      }
+    }
   }
 
   /**
@@ -537,25 +684,40 @@ export class GameEngine {
         const gate = objectToInteract as InteractiveObject;
         if (!gate.getProperty('isOpen')) {
           const keyId = gate.getProperty('keyId');
-          if (this.inventory.hasItem(keyId)) {
+          const requiredEnemyId = gate.getProperty('requiredEnemyId'); // e.g., 'goblin_01'
+          
+          // Check conditions for opening door
+          if (!this.inventory.hasItem(keyId)) {
+            this.uiManager.startDialogue([{ speaker: 'System', text: 'The gate is locked. You need a key.' }]);
+          } else if (requiredEnemyId && this.mapObjects.has(requiredEnemyId)) {
+            // Enemy still exists - can't open
+            this.uiManager.startDialogue([{ speaker: 'System', text: `You sense a dangerous presence beyond the gate. You must defeat the ${requiredEnemyId} first!` }]);
+          } else {
+            // All conditions met - open the gate
             this.inventory.removeItem(keyId);
             gate.setProperty('isOpen', true);
-            gate.sprite = 'gate_open'; // Change sprite
+            gate.sprite = 'gate_open'; // Change sprite property
+            this.updateObjectSpriteTexture(gate); // Update PIXI texture immediately
             this.grid.setCellType(gate.position.x, gate.position.y, CellType.GRASS); // Make walkable
-            this.uiManager.startDialogue([{ speaker: 'System', text: `You used the ${keyId} and opened the gate!` }]);
+            this.uiManager.startDialogue([{ speaker: 'System', text: `You used the ${keyId} and opened the gate! You may now proceed to the next level.` }]);
             this.render(); // Re-render to show open gate
-          } else {
-            this.uiManager.startDialogue([{ speaker: 'System', text: 'The gate is locked. You need a key.' }]);
           }
         } else {
-          this.uiManager.startDialogue([{ speaker: 'System', text: 'The gate is already open.' }]);
+          // Gate is open - allow passage to next level
+          this.uiManager.startDialogue([{ speaker: 'System', text: 'You step through the open gate...' }]).then(() => {
+            // After dialogue, advance to next level
+            this.advanceToNextLevel().catch(err => {
+              console.error('Failed to advance to next level:', err);
+            });
+          });
         }
         return; // Exit after handling door interaction
       } else if (objectToInteract.type === MapObjectType.CHEST) {
         const chest = objectToInteract as InteractiveObject;
         if (!chest.getProperty('isOpen')) {
           chest.setProperty('isOpen', true);
-          chest.sprite = 'chest_open'; // Change sprite
+          chest.sprite = 'chest_open'; // Change sprite property
+          this.updateObjectSpriteTexture(chest); // Update PIXI texture immediately
           const contents: Item[] = chest.getProperty('contents');
           let dialogueText = 'You opened the chest and found: ';
           contents.forEach(item => {
@@ -602,10 +764,15 @@ export class GameEngine {
       this.renderer.updateSpritePosition(this.playerPixiSprite, this.targetPlayerPos.x, this.targetPlayerPos.y);
     }
 
-    // Update all other map objects' sprite positions
+    // Update all other map objects' sprite positions and visibility based on FOV
     for (const object of this.mapObjects.values()) {
       if (object.pixiSprite && object.isActive) {
         this.renderer.updateSpritePosition(object.pixiSprite, object.position.x, object.position.y);
+        
+        // Control sprite visibility based on FOV discovery
+        // Objects are visible if their tile is explored (includes currently visible)
+        const isDiscovered = this.fogOfWar.isExplored(object.position.x, object.position.y);
+        object.pixiSprite.visible = isDiscovered;
       }
     }
 
@@ -620,7 +787,22 @@ export class GameEngine {
     // Draw path (excluding the current player position and the next target if moving)
     for (let i = this.isPlayerMoving ? this.currentPathIndex + 1 : 0; i < this.path.length; i++) {
       const cell = this.path[i];
-      this.renderer.drawMarker(cell.x, cell.y, 0xffff00, 3);
+      // Generate a distinct color for each step along the path using HSV-like progression
+      const hue = (i * 15) % 360; // 15 degrees per step
+      // Convert simple hue to RGB (assuming full saturation and value)
+      const h = hue / 60;
+      const xColor = Math.floor((1 - Math.abs(h % 2 - 1)) * 255);
+      let r = 0, g = 0, b = 0;
+      if (h < 1) { r = 255; g = xColor; b = 0; }
+      else if (h < 2) { r = xColor; g = 255; b = 0; }
+      else if (h < 3) { r = 0; g = 255; b = xColor; }
+      else if (h < 4) { r = 0; g = xColor; b = 255; }
+      else if (h < 5) { r = xColor; g = 0; b = 255; }
+      else { r = 255; g = 0; b = xColor; }
+      
+      const color = (r << 16) | (g << 8) | b;
+      
+      this.renderer.drawMarker(cell.x, cell.y, color, 3);
     }
 
     // Update player health UI
@@ -641,6 +823,9 @@ export class GameEngine {
     if (!this.isRunning) return;
 
     this.gameTime += deltaTime;
+    
+    // Update FPS counter in UI
+    this.uiManager.updateFpsCounter(deltaTime);
 
     // Only update player movement if UI is not active
     if (!this.uiManager.isUIOpen()) {

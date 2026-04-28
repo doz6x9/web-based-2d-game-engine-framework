@@ -9,10 +9,10 @@ import { Particle } from './Particles';
  */
 export class Camera {
   private position: Vector;
-  private width: number;
+  public width: number;
   private height: number;
-  private mapWidth: number;
-  private mapHeight: number;
+  public mapWidth: number;
+  public mapHeight: number;
   private tileSize: number;
 
   constructor(
@@ -76,8 +76,8 @@ export class Camera {
 export class Renderer {
   private app: PIXI.Application;
   private stage!: PIXI.Container; // Initialized in init()
-  private camera!: Camera; // Initialized in init()
-  private tileSize: number;
+  public camera!: Camera; // Initialized in init()
+  public tileSize: number;
   private layers: Map<string, PIXI.Container> = new Map();
   private tileColors: Map<number, number> = new Map();
   private textures: Map<string, PIXI.Texture> = new Map();
@@ -146,6 +146,14 @@ export class Renderer {
     this.tileColors.set(3, 0x6b4423); // Swamp
     this.tileColors.set(4, 0xc4a747); // Road
     this.tileColors.set(5, 0x2980b9); // Water
+    
+    // New environmental tiles
+    this.tileColors.set(6, 0x2d5a1a); // Tall Grass
+    this.tileColors.set(7, 0x2d5016); // Tree
+    this.tileColors.set(8, 0x696969); // Stone Wall
+    this.tileColors.set(9, 0x8b4513); // Wood Wall
+    this.tileColors.set(10, 0x4a90e2); // Shallow Water
+    this.tileColors.set(11, 0x1d4a7d); // Deep Water
   }
 
   /**
@@ -232,9 +240,6 @@ export class Renderer {
 
         const rect = new PIXI.Graphics();
         rect.rect(0, 0, this.tileSize, this.tileSize).fill(color);
-
-        // Draw border
-        rect.stroke({ width: 1, color: 0x000000, alpha: 0.2 });
 
         rect.x = x * this.tileSize;
         rect.y = y * this.tileSize;

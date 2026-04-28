@@ -10,6 +10,99 @@
     <div id="app">
       <div class="game-container">
         <canvas id="gameCanvas" width="1280" height="720"></canvas>
+        
+        <!-- HUD Overlay -->
+        <div id="hudOverlay" style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          pointer-events: none;
+          z-index: 100;
+        ">
+          <!-- FPS Counter (top-left) -->
+          <div id="fpsCounter" style="
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #00ff00;
+            padding: 8px 12px;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9em;
+            pointer-events: auto;
+          ">FPS: 0</div>
+          
+          <!-- Level Display (top-center) -->
+          <div id="levelDisplay" style="
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #ffd700;
+            padding: 8px 16px;
+            border: 1px solid #ffd700;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 1em;
+            pointer-events: auto;
+          ">Level 1: The Dungeon</div>
+          
+          <!-- HUD Buttons (top-right) -->
+          <div id="hudButtons" style="
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+          ">
+            <button id="pauseButton" style="
+              padding: 8px 15px;
+              background-color: #ff6b6b;
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 0.9em;
+              font-weight: bold;
+            ">Pause</button>
+            <button id="saveButton" style="
+              padding: 8px 15px;
+              background-color: #51cf66;
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 0.9em;
+              font-weight: bold;
+            ">Save</button>
+            <button id="loadButton" style="
+              padding: 8px 15px;
+              background-color: #4c6ef5;
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 0.9em;
+              font-weight: bold;
+            ">Load</button>
+            <button id="skipDialogueButton" style="
+              padding: 8px 15px;
+              background-color: #ffa94d;
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 0.9em;
+              font-weight: bold;
+            ">Skip</button>
+          </div>
+        </div>
       </div>
       <div class="ui-panel">
         <div class="info-section">
