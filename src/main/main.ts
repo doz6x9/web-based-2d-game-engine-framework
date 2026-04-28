@@ -12,8 +12,8 @@ async function initializeGame() {
   // Load visual assets
   try {
     await engine.getRenderer().loadAssets([
-      { id: 'hero', path: '/src/assets/hero.png' },
-      { id: 'potion', path: '/src/assets/potion.png' } // Load potion sprite
+      { id: 'hero', path: '/assets/hero.png' },
+      { id: 'potion', path: '/assets/potion.png' } // Load potion sprite
       // Add other assets here as needed
     ]);
     console.log('Visual assets loaded successfully.');

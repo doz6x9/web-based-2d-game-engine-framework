@@ -20,7 +20,6 @@ import { Item, ItemType } from './core/Item';
 import { UIManager } from './system/UIManager';
 import * as PIXI from 'pixi.js'; // Import PIXI for sprite type
 import { AudioManager } from './system/AudioManager';
-import bgmUrl from '../assets/audio/bgm.mp3';
 
 /**
  * Main Game Engine
@@ -117,39 +116,39 @@ export class GameEngine {
     try {
       await this.renderer.loadAssets([
         // Characters and objects
-        { id: 'hero', path: '/src/assets/hero.png' },
-        { id: 'potion', path: '/src/assets/potion.png' },
-        { id: 'gate', path: '/src/assets/gate.png' },
-        { id: 'gate_open', path: '/src/assets/gate_open.png' },
-        { id: 'chest', path: '/src/assets/chest.png' },
-        { id: 'chest_open', path: '/src/assets/chest_open.png' },
-        { id: 'sword', path: '/src/assets/sword.png' },
-        { id: 'mana_potion', path: '/src/assets/mana_potion.png' },
-        { id: 'goblin', path: '/src/assets/goblin.png' },
-        { id: 'key', path: '/src/assets/key.png' },
+        { id: 'hero', path: '/assets/hero.png' },
+        { id: 'potion', path: '/assets/potion.png' },
+        { id: 'gate', path: '/assets/gate.png' },
+        { id: 'gate_open', path: '/assets/gate_open.png' },
+        { id: 'chest', path: '/assets/chest.png' },
+        { id: 'chest_open', path: '/assets/chest_open.png' },
+        { id: 'sword', path: '/assets/sword.png' },
+        { id: 'mana_potion', path: '/assets/mana_potion.png' },
+        { id: 'goblin', path: '/assets/goblin.png' },
+        { id: 'key', path: '/assets/key.png' },
 
         // Environment Tiles from textures folder (using %20 for spaces)
-        { id: 'grass', path: '/src/assets/textures/grass.png' },
-        { id: 'swamp', path: '/src/assets/textures/mud.png' },
-        { id: 'path', path: '/src/assets/textures/path.png' },
-        { id: 'forest', path: '/src/assets/textures/trees.png' },
-        { id: 'water', path: '/src/assets/textures/water.png' },
-        { id: 'tall_grass', path: '/src/assets/textures/junglegrass.png' },
-        { id: 'stone_floor', path: '/src/assets/textures/stone%20tile.png' },
-        { id: 'wood_floor', path: '/src/assets/textures/wood%20tile.png' },
-        { id: 'deep_water', path: '/src/assets/textures/deepocean.png' },
-        { id: 'snow', path: '/src/assets/textures/snow.png' },
-        { id: 'cave_floor', path: '/src/assets/textures/cave%20gravel.png' },
-        { id: 'sand', path: '/src/assets/textures/sand.png' },
+        { id: 'grass', path: '/assets/textures/grass.png' },
+        { id: 'swamp', path: '/assets/textures/mud.png' },
+        { id: 'path', path: '/assets/textures/path.png' },
+        { id: 'forest', path: '/assets/textures/trees.png' },
+        { id: 'water', path: '/assets/textures/water.png' },
+        { id: 'tall_grass', path: '/assets/textures/junglegrass.png' },
+        { id: 'stone_floor', path: '/assets/textures/stone%20tile.png' },
+        { id: 'wood_floor', path: '/assets/textures/wood%20tile.png' },
+        { id: 'deep_water', path: '/assets/textures/deepocean.png' },
+        { id: 'snow', path: '/assets/textures/snow.png' },
+        { id: 'cave_floor', path: '/assets/textures/cave%20gravel.png' },
+        { id: 'sand', path: '/assets/textures/sand.png' },
 
         // Wall Autotiling variants
-        { id: 'wall_horizontal', path: '/src/assets/textures/caveCliff2.png' },
-        { id: 'wall_vertical', path: '/src/assets/textures/caveCliff2.png' },
-        { id: 'wall_corner_tl', path: '/src/assets/textures/caveCliff2.png' },
-        { id: 'wall_corner_tr', path: '/src/assets/textures/caveCliff2.png' },
-        { id: 'wall_corner_bl', path: '/src/assets/textures/caveCliff2.png' },
-        { id: 'wall_corner_br', path: '/src/assets/textures/caveCliff2.png' },
-        { id: 'cave_wall', path: '/src/assets/textures/caveCliff2.png' },
+        { id: 'wall_horizontal', path: '/assets/textures/caveCliff2.png' },
+        { id: 'wall_vertical', path: '/assets/textures/caveCliff2.png' },
+        { id: 'wall_corner_tl', path: '/assets/textures/caveCliff2.png' },
+        { id: 'wall_corner_tr', path: '/assets/textures/caveCliff2.png' },
+        { id: 'wall_corner_bl', path: '/assets/textures/caveCliff2.png' },
+        { id: 'wall_corner_br', path: '/assets/textures/caveCliff2.png' },
+        { id: 'cave_wall', path: '/assets/textures/caveCliff2.png' },
       ]);
       console.log('Visual assets loaded successfully.');
     } catch (error) {
@@ -182,7 +181,7 @@ export class GameEngine {
     this.setupUICallbacks();
 
 // Start playing the background music before the game loop starts
-    this.audioManager.playBGM(bgmUrl, 0.1)
+    this.audioManager.playBGM('/assets/audio/bgm.mp3', 0.1);
 
     this.startGameLoop();
   }
