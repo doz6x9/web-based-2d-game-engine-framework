@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .github
+
+.gitignore
+
+generate_map.py
+AVAILABLE_TEXTURES.md
+TILES.md
+TILES_REFERENCE.md

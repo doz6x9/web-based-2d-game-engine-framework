@@ -19,6 +19,8 @@ import { Inventory } from './core/Inventory';
 import { Item, ItemType } from './core/Item';
 import { UIManager } from './system/UIManager';
 import * as PIXI from 'pixi.js'; // Import PIXI for sprite type
+import { AudioManager } from './system/AudioManager';
+import bgmUrl from '../assets/audio/bgm.wav';
 
 /**
  * Main Game Engine
@@ -42,7 +44,7 @@ export class GameEngine {
   private quickSaveManager: QuickSaveManager;
   private editor: LevelEditor;
 
-  private currentPlayerPos: Vector = new Vector(5, 5);
+  private currentPlayerPos: Vector = new Vector(10, 10);
   private selectedCell: Vector | null = null;
   private path: Vector[] = [];
 
@@ -51,7 +53,7 @@ export class GameEngine {
   private currentPathIndex: number = 0;
   private moveProgress: number = 0; // 0 to 1, progress along current path segment
   private playerMoveSpeed: number = 0.005; // tiles per millisecond (e.g., 0.005 means 200ms per tile)
-  private targetPlayerPos: Vector = new Vector(5, 5); // The exact interpolated position of the player
+  private targetPlayerPos: Vector = new Vector(10, 10); // The exact interpolated position of the player
 
   private mapObjects: Map<string, MapObject> = new Map();
   private pendingInteractionTarget: MapObject | null = null;
@@ -65,11 +67,17 @@ export class GameEngine {
 
   private gameTime: number = 0;
   private isRunning: boolean = false;
-  private lastFrameTime: number = 0;
-  
+
+  // Reference to the PixiJS ticker callback
+  private boundGameLoop = this.pixiGameLoop.bind(this);
+
   // Level progression
   private currentLevel: number = 1;
   private levelMap: Map<number, { mapUrl: string; spawnPoint: Vector }> = new Map();
+
+  // Audio
+  private audioManager: AudioManager = new AudioManager();
+
 
   constructor() {
     this.grid = new Grid(100, 100); // Default grid size, will be updated by map
@@ -84,10 +92,11 @@ export class GameEngine {
     this.saveLoadManager = new SaveLoadManager();
     this.quickSaveManager = new QuickSaveManager();
     this.editor = new LevelEditor();
+    this.audioManager = new AudioManager();
 
     // Initialize tile registry
     TileRegistry.initialize();
-    
+
     // Set up level progression
     this.setupLevelMap();
   }
@@ -118,15 +127,29 @@ export class GameEngine {
         { id: 'mana_potion', path: '/src/assets/mana_potion.png' },
         { id: 'goblin', path: '/src/assets/goblin.png' },
         { id: 'key', path: '/src/assets/key.png' },
-        
-        // Placeholder environmental tiles (for future sprite expansion)
-        // { id: 'grass_tile', path: '/src/assets/tiles/grass.png' },
-        // { id: 'tall_grass_tile', path: '/src/assets/tiles/tall_grass.png' },
-        // { id: 'tree_oak', path: '/src/assets/tiles/tree_oak.png' },
-        // { id: 'stone_wall_tile', path: '/src/assets/tiles/stone_wall.png' },
-        // { id: 'wood_wall_tile', path: '/src/assets/tiles/wood_wall.png' },
-        // { id: 'shallow_water_tile', path: '/src/assets/tiles/shallow_water.png' },
-        // { id: 'deep_water_tile', path: '/src/assets/tiles/deep_water.png' },
+
+        // Environment Tiles from textures folder (using %20 for spaces)
+        { id: 'grass', path: '/src/assets/textures/grass.png' },
+        { id: 'swamp', path: '/src/assets/textures/mud.png' },
+        { id: 'path', path: '/src/assets/textures/path.png' },
+        { id: 'forest', path: '/src/assets/textures/trees.png' },
+        { id: 'water', path: '/src/assets/textures/water.png' },
+        { id: 'tall_grass', path: '/src/assets/textures/junglegrass.png' },
+        { id: 'stone_floor', path: '/src/assets/textures/stone%20tile.png' },
+        { id: 'wood_floor', path: '/src/assets/textures/wood%20tile.png' },
+        { id: 'deep_water', path: '/src/assets/textures/deepocean.png' },
+        { id: 'snow', path: '/src/assets/textures/snow.png' },
+        { id: 'cave_floor', path: '/src/assets/textures/cave%20gravel.png' },
+        { id: 'sand', path: '/src/assets/textures/sand.png' },
+
+        // Wall Autotiling variants
+        { id: 'wall_horizontal', path: '/src/assets/textures/caveCliff2.png' },
+        { id: 'wall_vertical', path: '/src/assets/textures/caveCliff2.png' },
+        { id: 'wall_corner_tl', path: '/src/assets/textures/caveCliff2.png' },
+        { id: 'wall_corner_tr', path: '/src/assets/textures/caveCliff2.png' },
+        { id: 'wall_corner_bl', path: '/src/assets/textures/caveCliff2.png' },
+        { id: 'wall_corner_br', path: '/src/assets/textures/caveCliff2.png' },
+        { id: 'cave_wall', path: '/src/assets/textures/caveCliff2.png' },
       ]);
       console.log('Visual assets loaded successfully.');
     } catch (error) {
@@ -157,192 +180,24 @@ export class GameEngine {
     // Initialize event handlers and start the game loop
     this.setupEventHandlers();
     this.setupUICallbacks();
+
+// Start playing the background music before the game loop starts
+    this.audioManager.playBGM(bgmUrl, 0.1)
+
     this.startGameLoop();
   }
 
-  /**
-   * Initialize demo scene (game-specific setup).
-   * This allows the engine to remain agnostic to the game being played.
-   */
-  initializeDemoScene(): void {
-    // Add a demo NPC
-    const npc = new NPC('npc_01', new Vector(7, 2), 'hero');
-    this.addMapObject(npc);
 
-    // ===== ROOM 1 (Starting Room) =====
-    // Add a Chest (InteractiveObject) in the starting room
-    const chest = new InteractiveObject('chest_01', MapObjectType.CHEST, new Vector(8, 8), 'chest');
-    chest.setProperty('isOpen', false);
-    chest.setProperty('contents', [
-      new Item('mana_potion_1', 'Mana Potion', 'Restores a small amount of mana.', 'mana_potion', ItemType.CONSUMABLE, true, 3, 1),
-      new Item('basic_sword', 'Basic Sword', 'A simple sword.', 'sword', ItemType.WEAPON),
-    ]);
-    this.addMapObject(chest);
 
-    // Add potions scattered in Room 1
-    const potion1 = new Item(
-      'health_potion_1',
-      'Health Potion',
-      'Restores a small amount of health.',
-      'potion',
-      ItemType.CONSUMABLE,
-      true,
-      5,
-      1
-    );
-    this.addMapObject(potion1.toMapObject(new Vector(4, 5)));
-
-    const potion2 = new Item(
-      'health_potion_2',
-      'Health Potion',
-      'Restores a small amount of health.',
-      'potion',
-      ItemType.CONSUMABLE,
-      true,
-      5,
-      1
-    );
-    this.addMapObject(potion2.toMapObject(new Vector(11, 10)));
-
-    // ===== CORRIDOR 1 =====
-    const sword1 = new Item(
-      'iron_sword_1',
-      'Iron Sword',
-      'A sturdy iron blade.',
-      'sword',
-      ItemType.WEAPON
-    );
-    this.addMapObject(sword1.toMapObject(new Vector(17, 8)));
-
-    // ===== ROOM 2 (Middle Room with Goblin) =====
-    // Add an Enemy (Goblin)
-    const goblin = new Enemy('goblin_01', new Vector(26, 8), 'goblin');
-    goblin.health = 30;
-    goblin.maxHealth = 30;
-    goblin.attackPower = 5;
-    this.addMapObject(goblin);
-
-    // Add potions in Room 2
-    const potion3 = new Item(
-      'mana_potion_2',
-      'Mana Potion',
-      'Restores a small amount of mana.',
-      'mana_potion',
-      ItemType.CONSUMABLE,
-      true,
-      3,
-      1
-    );
-    this.addMapObject(potion3.toMapObject(new Vector(24, 5)));
-
-    const potion4 = new Item(
-      'health_potion_3',
-      'Health Potion',
-      'Restores a small amount of health.',
-      'potion',
-      ItemType.CONSUMABLE,
-      true,
-      5,
-      1
-    );
-    this.addMapObject(potion4.toMapObject(new Vector(29, 12)));
-
-    // Add sword in Room 2
-    const sword2 = new Item(
-      'steel_sword_1',
-      'Steel Sword',
-      'A well-forged steel blade.',
-      'sword',
-      ItemType.WEAPON
-    );
-    this.addMapObject(sword2.toMapObject(new Vector(21, 10)));
-
-    // ===== CORRIDOR 2 =====
-    // Add a Gate Key item in corridor
-    const gateKey = new Item(
-      'gate_key',
-      'Rusty Key',
-      'A rusty key that might open something.',
-      'key',
-      ItemType.KEY_ITEM
-    );
-    this.addMapObject(gateKey.toMapObject(new Vector(35, 8)));
-
-    // ===== ROOM 3 (Exit Room with Gate) =====
-    // Add a Gate (InteractiveObject)
-    const gate = new InteractiveObject('gate_01', MapObjectType.DOOR, new Vector(45, 8), 'gate');
-    gate.setProperty('isOpen', false);
-    gate.setProperty('keyId', 'gate_key'); // Key required to open
-    gate.setProperty('requiredEnemyId', 'goblin_01'); // Goblin must be defeated to open
-    this.addMapObject(gate);
-
-    // Add potions in Room 3
-    const potion5 = new Item(
-      'health_potion_4',
-      'Health Potion',
-      'Restores a small amount of health.',
-      'potion',
-      ItemType.CONSUMABLE,
-      true,
-      5,
-      1
-    );
-    this.addMapObject(potion5.toMapObject(new Vector(41, 6)));
-
-    // ===== LOWER CHAMBER (Big exploration area) =====
-    // Scatter items in the lower chamber for exploration
-    const sword3 = new Item(
-      'golden_sword_1',
-      'Golden Sword',
-      'A gleaming golden blade.',
-      'sword',
-      ItemType.WEAPON
-    );
-    this.addMapObject(sword3.toMapObject(new Vector(10, 28)));
-
-    const potion6 = new Item(
-      'mana_potion_3',
-      'Mana Potion',
-      'Restores a small amount of mana.',
-      'mana_potion',
-      ItemType.CONSUMABLE,
-      true,
-      3,
-      1
-    );
-    this.addMapObject(potion6.toMapObject(new Vector(26, 26)));
-
-    const potion7 = new Item(
-      'health_potion_5',
-      'Health Potion',
-      'Restores a small amount of health.',
-      'potion',
-      ItemType.CONSUMABLE,
-      true,
-      5,
-      1
-    );
-    this.addMapObject(potion7.toMapObject(new Vector(42, 30)));
-
-    const sword4 = new Item(
-      'diamond_sword_1',
-      'Diamond Sword',
-      'A precious diamond-encrusted weapon.',
-      'sword',
-      ItemType.WEAPON
-    );
-    this.addMapObject(sword4.toMapObject(new Vector(48, 25)));
-  }
 
   /**
    * Set up level progression map
    */
   private setupLevelMap(): void {
     // Define available levels
-    this.levelMap.set(1, { mapUrl: '/maps/test-map.json', spawnPoint: new Vector(5, 5) });
-    // Future levels can be added here:
-    // this.levelMap.set(2, { mapUrl: '/maps/level2.json', spawnPoint: new Vector(5, 5) });
-    // this.levelMap.set(3, { mapUrl: '/maps/level3.json', spawnPoint: new Vector(5, 5) });
+    this.levelMap.set(1, { mapUrl: '/maps/test-map.json', spawnPoint: new Vector(10, 10) });
+    // Next level reuses the demo map but spawns somewhere else to demonstrate a level transition!
+    this.levelMap.set(2, { mapUrl: '/maps/test-map.json', spawnPoint: new Vector(18, 18) });
   }
 
   /**
@@ -382,6 +237,9 @@ export class GameEngine {
     // Reset fog of war
     this.fogOfWar = new FogOfWar(this.grid.getWidth(), this.grid.getHeight(), this.fov);
 
+    // Clear the renderer's cached map layers to ensure a fresh redraw
+    this.renderer.clearMapCache();
+
     this.map = null;
   }
 
@@ -390,16 +248,12 @@ export class GameEngine {
    */
   async loadLevel(mapUrl: string, spawnPoint: Vector): Promise<void> {
     console.log(`Loading level: ${mapUrl}`);
-    
+
     // Clear current map
     this.clearMap();
 
     // Load the new map
     await this.loadMap(mapUrl);
-
-    // Place player at spawn point
-    this.currentPlayerPos = spawnPoint.clone();
-    this.targetPlayerPos = spawnPoint.clone();
 
     // Update UI with new level info
     const levelNames: Map<number, string> = new Map([
@@ -424,15 +278,30 @@ export class GameEngine {
     const mapData = await response.json();
     this.map = MapLoader.parseMapJSON(mapData);
 
-    // Update grid from collision layer
     const collisionLayer = this.map.getLayerByName('collision');
-    if (collisionLayer) {
-      const data = collisionLayer.getData();
-      for (let y = 0; y < data.length; y++) {
-        for (let x = 0; x < data[y].length; x++) {
-          const cellType = data[y][x] === 1 ? CellType.WALL : CellType.GRASS;
-          this.grid.setCellType(x, y, cellType);
+    const terrainLayer = this.map.getLayerByName('terrain');
+
+    // Update grid from collision layer and terrain types
+    if (collisionLayer && terrainLayer) {
+      const cData = collisionLayer.getData();
+      const tData = terrainLayer.getData();
+      for (let y = 0; y < cData.length; y++) {
+        for (let x = 0; x < cData[y].length; x++) {
+          // If collision layer has a solid value (non-zero), use it for grid type
+          if (cData[y][x] !== 0) {
+             this.grid.setCellType(x, y, cData[y][x] as CellType);
+          } else {
+             // Safe fallback to terrain layer type mapping
+             this.grid.setCellType(x, y, tData[y][x] as CellType);
+          }
         }
+      }
+    }
+
+    // Load dynamic objects if defined in the map JSON
+    if (mapData.objects && Array.isArray(mapData.objects)) {
+      for (const objData of mapData.objects) {
+        this.createMapObjectFromData(objData);
       }
     }
 
@@ -444,6 +313,67 @@ export class GameEngine {
     this.renderer.getCamera().mapHeight = this.map.getHeight();
 
     this.render();
+  }
+
+  /**
+   * Create map objects from procedural JSON data
+   */
+  private createMapObjectFromData(data: any): void {
+      const type = data.type;
+      const x = data.x;
+      const y = data.y;
+
+      if (type === "SPAWN" || type === "PLAYER_SPAWN") {
+          this.currentPlayerPos = new Vector(x, y);
+          this.targetPlayerPos = new Vector(x, y);
+          // Set spawn point for current level
+          const currentLevelData = this.levelMap.get(this.currentLevel);
+          if (currentLevelData) {
+              currentLevelData.spawnPoint = new Vector(x, y);
+          }
+      } else if (type === "NPC") {
+          const npc = new NPC(data.id || `npc_${x}_${y}`, new Vector(x, y), data.sprite || 'hero');
+          this.addMapObject(npc);
+      } else if (type === "ENEMY") {
+          const enemy = new Enemy(data.id || `enemy_${x}_${y}`, new Vector(x, y), data.sprite || 'goblin');
+          enemy.health = data.health || 30;
+          enemy.maxHealth = data.health || 30;
+          enemy.attackPower = data.attack || 5;
+          this.addMapObject(enemy);
+      } else if (type === "ITEM") {
+          const itemTypeMap: any = {
+              "CONSUMABLE": ItemType.CONSUMABLE,
+              "WEAPON": ItemType.WEAPON,
+              "KEY": ItemType.KEY_ITEM,
+              "KEY_ITEM": ItemType.KEY_ITEM
+          };
+          const iType = itemTypeMap[data.item_type] || ItemType.MISC;
+
+          const item = new Item(
+              data.id || `item_${x}_${y}`,
+              data.name || "Item",
+              data.description || "",
+              data.sprite || "potion",
+              iType
+          );
+          this.addMapObject(item.toMapObject(new Vector(x, y)));
+      } else if (type === "CHEST") {
+          const chest = new InteractiveObject(data.id || `chest_${x}_${y}`, MapObjectType.CHEST, new Vector(x, y), data.sprite || 'chest');
+          chest.setProperty('isOpen', false);
+
+          // Generate generic loot if none specified
+          const contents = data.contents || [
+              new Item(`potion_${x}_${y}`, 'Health Potion', '', 'potion', ItemType.CONSUMABLE, true, 5, 1)
+          ];
+          chest.setProperty('contents', contents);
+          this.addMapObject(chest);
+      } else if (type === "DOOR") {
+          const door = new InteractiveObject(data.id || `door_${x}_${y}`, MapObjectType.DOOR, new Vector(x, y), data.sprite || 'gate');
+          door.setProperty('isOpen', false);
+          if (data.keyId) door.setProperty('keyId', data.keyId);
+          if (data.requiredEnemyId) door.setProperty('requiredEnemyId', data.requiredEnemyId);
+          this.addMapObject(door);
+      }
   }
 
   /**
@@ -499,13 +429,36 @@ export class GameEngine {
 
   /**
    * Handle left click
-   * ONLY handles: path calculation to objects + object interaction
-   * Does NOT move to empty tiles
+   * Calculates and displays a path to the clicked cell.
    */
   private onLeftClick(pos: Vector): void {
     if (this.uiManager.isUIOpen()) return; // Prevent interaction during UI activity
 
-    console.log(`Left clicked: ${pos.x}, ${pos.y}`);
+    console.log(`Left clicked for path calculation: ${pos.x}, ${pos.y}`);
+    this.selectedCell = pos;
+    this.pendingInteractionTarget = null; // Left-click is for pathing only
+
+    // Find path to the clicked cell
+    const newPath = this.pathfinder.findPath(this.currentPlayerPos, pos);
+    if (newPath.length > 0) {
+      this.path = newPath;
+    } else {
+      this.path = [];
+      console.log(`Cannot find path to ${pos.x}, ${pos.y}.`);
+    }
+
+    this.isPlayerMoving = false; // IMPORTANT: Do not move, just calculate
+    this.render();
+  }
+
+  /**
+   * Handle right click
+   * Moves the player to a cell, handling interaction if an object is present.
+   */
+  private onRightClick(pos: Vector): void {
+    if (this.uiManager.isUIOpen()) return; // Prevent movement during UI activity
+
+    console.log(`Right clicked for movement: ${pos.x}, ${pos.y}`);
     this.selectedCell = pos;
     this.pendingInteractionTarget = null; // Clear any pending interaction
 
@@ -517,6 +470,9 @@ export class GameEngine {
         break;
       }
     }
+
+    let moveTarget = pos;
+    let pathingNeeded = true;
 
     if (clickedObject) {
       // If an interactive object was clicked, find an adjacent walkable tile to move to
@@ -531,47 +487,31 @@ export class GameEngine {
       }
 
       if (targetAdjacentTile) {
-        const newPath = this.pathfinder.findPath(this.currentPlayerPos, targetAdjacentTile);
+        moveTarget = targetAdjacentTile;
+        this.pendingInteractionTarget = clickedObject; // Set pending interaction
+      } else {
+        console.log(`No walkable tile adjacent to ${clickedObject.id} for interaction.`);
+        pathingNeeded = false; // Don't try to path if there's nowhere to go
+      }
+    }
+
+    if (pathingNeeded) {
+        const newPath = this.pathfinder.findPath(this.currentPlayerPos, moveTarget);
         if (newPath.length > 0) {
           this.path = newPath;
           this.isPlayerMoving = true;
           this.currentPathIndex = 0;
           this.moveProgress = 0;
           this.targetPlayerPos = this.currentPlayerPos.clone();
-          this.pendingInteractionTarget = clickedObject; // Set pending interaction
         } else {
-          console.log(`Cannot find path to interact with ${clickedObject.id}.`);
+          this.path = [];
+          this.isPlayerMoving = false;
+          this.pendingInteractionTarget = null; // Clear interaction if path fails
+          console.log(`Cannot move to ${moveTarget.x}, ${moveTarget.y}.`);
         }
-      } else {
-        console.log(`No walkable tile adjacent to ${clickedObject.id} for interaction.`);
-      }
     } else {
-      // No interactive object clicked - just select the cell for visualization
-      console.log(`Left clicked empty tile: ${pos.x}, ${pos.y}`);
-    }
-    this.render();
-  }
-
-  /**
-   * Handle right click (still for movement to any tile)
-   */
-  private onRightClick(pos: Vector): void {
-    if (this.uiManager.isUIOpen()) return; // Prevent movement during UI activity
-
-    console.log(`Right clicked: ${pos.x}, ${pos.y}`);
-    this.pendingInteractionTarget = null; // Clear any pending interaction
-    // Only start moving if a path can be found
-    const newPath = this.pathfinder.findPath(this.currentPlayerPos, pos);
-    if (newPath.length > 0) {
-      this.path = newPath;
-      this.isPlayerMoving = true;
-      this.currentPathIndex = 0;
-      this.moveProgress = 0;
-      this.targetPlayerPos = this.currentPlayerPos.clone(); // Start from current grid position
-    } else {
-      this.path = [];
-      this.isPlayerMoving = false;
-      console.log(`Cannot move to ${pos.x}, ${pos.y}. It might be blocked or unwalkable.`);
+        this.path = [];
+        this.isPlayerMoving = false;
     }
     this.render();
   }
@@ -629,18 +569,23 @@ export class GameEngine {
           console.log(`${enemy.id} took ${damage} damage. Health: ${enemy.health}/${enemy.maxHealth}`);
 
           // Trigger blood particle effect at enemy position
-          this.particleSystem.createEmitter(
+          const bloodEmitterId = this.particleSystem.createEmitter(
             enemy.position.clone(),
             ParticlePresets.BLOOD
           );
+          const bloodEmitter = this.particleSystem.getEmitter(bloodEmitterId);
+          if (bloodEmitter) bloodEmitter.setLifetime(200);
 
           if (!enemy.isAlive()) {
             console.log(`${enemy.id} defeated!`);
             // Trigger additional particle effect when enemy is defeated
-            this.particleSystem.createEmitter(
+            const explosionEmitterId = this.particleSystem.createEmitter(
               enemy.position.clone(),
               ParticlePresets.EXPLOSION
             );
+            const explosionEmitter = this.particleSystem.getEmitter(explosionEmitterId);
+            if (explosionEmitter) explosionEmitter.setLifetime(300);
+
             this.removeMapObject(enemy.id);
             this.render();
           } else {
@@ -685,25 +630,33 @@ export class GameEngine {
         if (!gate.getProperty('isOpen')) {
           const keyId = gate.getProperty('keyId');
           const requiredEnemyId = gate.getProperty('requiredEnemyId'); // e.g., 'goblin_01'
-          
+
           // Check conditions for opening door
-          if (!this.inventory.hasItem(keyId)) {
+          if (keyId && !this.inventory.hasItem(keyId)) {
             this.uiManager.startDialogue([{ speaker: 'System', text: 'The gate is locked. You need a key.' }]);
           } else if (requiredEnemyId && this.mapObjects.has(requiredEnemyId)) {
             // Enemy still exists - can't open
             this.uiManager.startDialogue([{ speaker: 'System', text: `You sense a dangerous presence beyond the gate. You must defeat the ${requiredEnemyId} first!` }]);
           } else {
             // All conditions met - open the gate
-            this.inventory.removeItem(keyId);
+            if (keyId) {
+                this.inventory.removeItem(keyId);
+            }
             gate.setProperty('isOpen', true);
             gate.sprite = 'gate_open'; // Change sprite property
             this.updateObjectSpriteTexture(gate); // Update PIXI texture immediately
             this.grid.setCellType(gate.position.x, gate.position.y, CellType.GRASS); // Make walkable
-            this.uiManager.startDialogue([{ speaker: 'System', text: `You used the ${keyId} and opened the gate! You may now proceed to the next level.` }]);
+
+            // Advance to next level automatically when opened
+            this.uiManager.startDialogue([{ speaker: 'System', text: `You opened the gate! You step through to the next area...` }]).then(() => {
+              this.advanceToNextLevel().catch(err => {
+                console.error('Failed to advance to next level:', err);
+              });
+            });
             this.render(); // Re-render to show open gate
           }
         } else {
-          // Gate is open - allow passage to next level
+          // Gate is already open - allow passage to next level
           this.uiManager.startDialogue([{ speaker: 'System', text: 'You step through the open gate...' }]).then(() => {
             // After dialogue, advance to next level
             this.advanceToNextLevel().catch(err => {
@@ -744,6 +697,12 @@ export class GameEngine {
   private render(): void {
     if (!this.map) return;
 
+    // Center camera on player (using interpolated position for smooth camera)
+    this.renderer.getCamera().centerOn(this.targetPlayerPos);
+
+    // Apply camera transform to the stage
+    this.renderer.applyCameraTransform();
+
     // Render map (only draws static layers once)
     this.renderer.renderMap(this.map);
 
@@ -759,6 +718,10 @@ export class GameEngine {
     // Draw FOV visualization
     this.renderer.drawFOV(visibleCells, this.map.getWidth(), this.map.getHeight());
 
+    const cameraPos = this.renderer.getCamera().getPosition();
+    const cameraWidth = this.renderer.getCamera().width / this.renderer.tileSize;
+    const cameraHeight = this.renderer.getCamera().height / this.renderer.tileSize;
+
     // Update player sprite position
     if (this.playerPixiSprite) {
       this.renderer.updateSpritePosition(this.playerPixiSprite, this.targetPlayerPos.x, this.targetPlayerPos.y);
@@ -767,8 +730,21 @@ export class GameEngine {
     // Update all other map objects' sprite positions and visibility based on FOV
     for (const object of this.mapObjects.values()) {
       if (object.pixiSprite && object.isActive) {
+
+        // Culling: Check if object is within camera bounds (with a small buffer)
+        const inCameraBounds =
+          object.position.x >= cameraPos.x - 2 &&
+          object.position.x <= cameraPos.x + cameraWidth + 2 &&
+          object.position.y >= cameraPos.y - 2 &&
+          object.position.y <= cameraPos.y + cameraHeight + 2;
+
+        if (!inCameraBounds) {
+            object.pixiSprite.visible = false;
+            continue;
+        }
+
         this.renderer.updateSpritePosition(object.pixiSprite, object.position.x, object.position.y);
-        
+
         // Control sprite visibility based on FOV discovery
         // Objects are visible if their tile is explored (includes currently visible)
         const isDiscovered = this.fogOfWar.isExplored(object.position.x, object.position.y);
@@ -799,9 +775,9 @@ export class GameEngine {
       else if (h < 4) { r = 0; g = xColor; b = 255; }
       else if (h < 5) { r = xColor; g = 0; b = 255; }
       else { r = 255; g = 0; b = xColor; }
-      
+
       const color = (r << 16) | (g << 8) | b;
-      
+
       this.renderer.drawMarker(cell.x, cell.y, color, 3);
     }
 
@@ -823,7 +799,7 @@ export class GameEngine {
     if (!this.isRunning) return;
 
     this.gameTime += deltaTime;
-    
+
     // Update FPS counter in UI
     this.uiManager.updateFpsCounter(deltaTime);
 
@@ -893,25 +869,22 @@ export class GameEngine {
   }
 
   /**
+   * Game loop bound to PixiJS Ticker
+   */
+  private pixiGameLoop(): void {
+    if (!this.isRunning) return;
+
+    // Use PixiJS's reliable deltaMS (based on high-res performance.now())
+    const deltaTime = this.renderer.getApp().ticker.deltaMS;
+    this.update(deltaTime);
+  }
+
+  /**
    * Start game loop
    */
   private startGameLoop(): void {
     this.isRunning = true;
-    this.lastFrameTime = Date.now();
-
-    const gameLoop = () => {
-      if (!this.isRunning) return;
-
-      const currentTime = Date.now();
-      const deltaTime = currentTime - this.lastFrameTime;
-      this.lastFrameTime = currentTime;
-
-      this.update(deltaTime);
-
-      requestAnimationFrame(gameLoop);
-    };
-
-    requestAnimationFrame(gameLoop);
+    this.renderer.getApp().ticker.add(this.boundGameLoop);
   }
 
   /**
@@ -919,6 +892,7 @@ export class GameEngine {
    */
   stopGameLoop(): void {
     this.isRunning = false;
+    this.renderer.getApp().ticker.remove(this.boundGameLoop);
   }
 
   /**

@@ -13,6 +13,8 @@ export enum MouseEventType {
  * Interface for camera coordinate conversion
  */
 export interface ICamera {
+  width: number;
+  height: number;
   screenToWorld(screenX: number, screenY: number): Vector;
 }
 
@@ -37,7 +39,8 @@ export class MouseHandler {
    * Setup event listeners
    */
   private setupEventListeners(): void {
-    this.canvas.addEventListener('click', (e) => {
+    // Use mousedown instead of click to reliably capture right-clicks
+    this.canvas.addEventListener('mousedown', (e) => {
       const pos = this.getMouseGridPosition(e);
       if (e.button === 0) {
         this.triggerEvent(MouseEventType.LEFT_CLICK, pos);
@@ -53,7 +56,7 @@ export class MouseHandler {
     });
 
     this.canvas.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
+      e.preventDefault(); // Prevent the browser's default context menu
     });
   }
 
@@ -63,8 +66,22 @@ export class MouseHandler {
    */
   private getMouseGridPosition(event: MouseEvent): Vector {
     const rect = this.canvas.getBoundingClientRect();
-    const screenX = event.clientX - rect.left;
-    const screenY = event.clientY - rect.top;
+
+    // Calculate the scale factor in case the canvas is resized by CSS
+    let scaleX = 1;
+    let scaleY = 1;
+
+    if (this.camera) {
+      scaleX = this.camera.width / rect.width;
+      scaleY = this.camera.height / rect.height;
+    } else {
+      scaleX = this.canvas.width / rect.width;
+      scaleY = this.canvas.height / rect.height;
+    }
+
+    // Apply the scale to the mouse position
+    const screenX = (event.clientX - rect.left) * scaleX;
+    const screenY = (event.clientY - rect.top) * scaleY;
 
     // If camera is available, use it for proper world-space conversion
     if (this.camera) {

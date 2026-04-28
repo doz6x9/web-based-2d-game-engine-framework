@@ -1,5 +1,3 @@
-
-
 /**
  * Represents a single layer in a multi-layered map
  */
@@ -129,17 +127,31 @@ export class MapLoader {
   static parseMapJSON(
     mapData: any
   ): GameMap {
+    const mapWidth = mapData.width || 0;
+    const mapHeight = mapData.height || 0;
+
     const map = new GameMap(
       mapData.name || 'Unnamed Map',
-      mapData.width,
-      mapData.height
+      mapWidth,
+      mapHeight
     );
 
     if (mapData.layers && Array.isArray(mapData.layers)) {
       for (const layerData of mapData.layers) {
+        let formattedData = layerData.data;
+
+        // Automatically convert 1D array to 2D array if necessary (e.g. from Tiled exports)
+        if (formattedData && formattedData.length > 0 && typeof formattedData[0] === 'number') {
+          const new2D = [];
+          for (let i = 0; i < formattedData.length; i += mapWidth) {
+            new2D.push(formattedData.slice(i, i + mapWidth));
+          }
+          formattedData = new2D;
+        }
+
         const layer = new MapLayer(
           layerData.name || 'Layer',
-          layerData.data
+          formattedData
         );
         map.addLayer(layer);
       }

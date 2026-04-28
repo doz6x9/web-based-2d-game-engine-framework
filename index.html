@@ -2,197 +2,413 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Replaced local favicon with an inline SVG to prevent broken icons in preview -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB5PSIuOWVtIiBmb250LXNpemU9IjkwIj7wn46uPC90ZXh0Pjwvc3ZnPg==" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>2D Web-Based Game Engine</title>
-  </head>
-  <body>
-    <div id="app">
-      <div class="game-container">
-        <canvas id="gameCanvas" width="1280" height="720"></canvas>
-        
-        <!-- HUD Overlay -->
-        <div id="hudOverlay" style="
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          pointer-events: none;
-          z-index: 100;
-        ">
-          <!-- FPS Counter (top-left) -->
-          <div id="fpsCounter" style="
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: #00ff00;
-            padding: 8px 12px;
-            border: 1px solid #00ff00;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 0.9em;
-            pointer-events: auto;
-          ">FPS: 0</div>
-          
-          <!-- Level Display (top-center) -->
-          <div id="levelDisplay" style="
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            color: #ffd700;
-            padding: 8px 16px;
-            border: 1px solid #ffd700;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 1em;
-            pointer-events: auto;
-          ">Level 1: The Dungeon</div>
-          
-          <!-- HUD Buttons (top-right) -->
-          <div id="hudButtons" style="
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            display: flex;
-            gap: 10px;
-            pointer-events: auto;
-          ">
-            <button id="pauseButton" style="
-              padding: 8px 15px;
-              background-color: #ff6b6b;
-              color: white;
-              border: none;
-              border-radius: 5px;
-              cursor: pointer;
-              font-size: 0.9em;
-              font-weight: bold;
-            ">Pause</button>
-            <button id="saveButton" style="
-              padding: 8px 15px;
-              background-color: #51cf66;
-              color: white;
-              border: none;
-              border-radius: 5px;
-              cursor: pointer;
-              font-size: 0.9em;
-              font-weight: bold;
-            ">Save</button>
-            <button id="loadButton" style="
-              padding: 8px 15px;
-              background-color: #4c6ef5;
-              color: white;
-              border: none;
-              border-radius: 5px;
-              cursor: pointer;
-              font-size: 0.9em;
-              font-weight: bold;
-            ">Load</button>
-            <button id="skipDialogueButton" style="
-              padding: 8px 15px;
-              background-color: #ffa94d;
-              color: white;
-              border: none;
-              border-radius: 5px;
-              cursor: pointer;
-              font-size: 0.9em;
-              font-weight: bold;
-            ">Skip</button>
-          </div>
-        </div>
-      </div>
-      <div class="ui-panel">
-        <div class="info-section">
-          <div class="coordinate-info">
-            <span>
-              <strong>Player:</strong>
-              <span id="playerCoords">0, 0</span>
-            </span>
-            <span>
-              <strong>Mouse:</strong>
-              <span id="mouseCoords">0, 0</span>
-            </span>
-            <span>
-              <strong>Health:</strong>
-              <span id="playerHealth">100/100</span>
-            </span>
-          </div>
-        </div>
-        <div class="instructions">
-          <p><strong>Controls:</strong> Left Click = Move/Interact | Right Click = Move</p>
-        </div>
-        <div class="action-buttons">
-          <button id="inventoryButton" style="
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1em;
-            margin-top: 10px;
-          ">Inventory</button>
-        </div>
-      </div>
 
-      <!-- Dialogue Box -->
-      <div id="dialogueBox" style="
+    <style>
+      /* Import a classic Retro RPG Font */
+      @import url('https://fonts.googleapis.com/css2?family=VT323&family=Cinzel:wght@700&display=swap');
+
+      :root {
+        /* Classic RPG Color Palette */
+        --bg-color: #111111;
+        --panel-bg: rgba(25, 15, 10, 0.9); /* Dark leather/wood */
+        --panel-border: #d4af37; /* Antique Gold */
+        --text-main: #f4ebd8; /* Parchment white */
+        --text-highlight: #ffcc00; /* Bright gold for important text */
+        --health-red: #ff3b30;
+
+        /* Button Colors */
+        --btn-bg: #3e2723;
+        --btn-border: #8d6e63;
+        --btn-hover: #5d4037;
+
+        /* Typography */
+        --font-retro: 'VT323', monospace;
+        --font-fantasy: 'Cinzel', serif;
+      }
+
+      body {
+        margin: 0;
+        background-color: var(--bg-color);
+        color: var(--text-main);
+        font-family: var(--font-retro);
+        font-size: 24px; /* Pixel fonts need to be larger to be readable */
+        overflow: hidden; /* Prevents scrollbars around the canvas */
+        user-select: none;
+      }
+
+      /* Remove browser default focus outline and replace with theme color */
+      *:focus {
+        outline: none;
+      }
+      *:focus-visible {
+        outline: 2px solid var(--text-highlight);
+        outline-offset: 2px;
+      }
+
+      /* ---------------------------------
+         CANVAS & CONTAINERS
+      --------------------------------- */
+      .game-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #000;
+      }
+
+      canvas {
+        image-rendering: pixelated; /* Keeps pixel art sharp! */
+        box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        background-color: #1a1a1a; /* Slight background for visibility */
+      }
+
+      /* ---------------------------------
+         GLOBAL RPG PANELS (The "Text Box" look)
+      --------------------------------- */
+      .rpg-panel {
+        background-color: var(--panel-bg);
+        border: 4px double var(--panel-border);
+        border-radius: 8px;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 5px 15px rgba(0,0,0,0.5);
+        padding: 15px;
+        box-sizing: border-box;
+      }
+
+      .panel-title {
+        font-family: var(--font-fantasy);
+        color: var(--text-highlight);
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 15px;
+        border-bottom: 2px solid var(--panel-border);
+        padding-bottom: 5px;
+        letter-spacing: 2px;
+      }
+
+      /* ---------------------------------
+         HUD OVERLAY
+      --------------------------------- */
+      .hud-overlay {
         position: absolute;
-        bottom: 20px;
+        top: 0; left: 0; right: 0; bottom: 0;
+        pointer-events: none;
+        z-index: 100;
+        padding: 15px;
+      }
+
+      .hud-element {
+        background-color: var(--panel-bg);
+        border: 2px solid var(--panel-border);
+        padding: 8px 16px;
+        border-radius: 4px;
+        pointer-events: auto;
+      }
+
+      .level-display {
+        position: absolute;
+        top: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: var(--font-fantasy);
+        color: var(--text-highlight);
+        font-size: 1.2em;
+        letter-spacing: 2px;
+      }
+
+      /* ---------------------------------
+         COLLAPSIBLE MENU
+      --------------------------------- */
+      .menu-container {
+        position: absolute;
+        top: 15px; right: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+        pointer-events: auto;
+      }
+
+      .hud-buttons {
+        display: none; /* Collapsed by default */
+        flex-direction: column;
+        gap: 10px;
+        background-color: var(--panel-bg);
+        border: 2px solid var(--panel-border);
+        padding: 10px;
+        border-radius: 8px;
+      }
+
+      .hud-buttons.open {
+        display: flex;
+      }
+
+      /* ---------------------------------
+         DEV TOOLS PANEL
+      --------------------------------- */
+      .dev-tools-wrapper {
+        position: absolute;
+        bottom: 15px; left: 15px;
+        pointer-events: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .dev-tools-panel {
+        display: none; /* Hidden by default */
+        font-size: 1.1em;
+        min-width: 200px;
+      }
+
+      .dev-tools-panel.open {
+        display: block;
+      }
+
+      .fps-counter {
+        color: #00ff00;
+        margin-bottom: 5px;
+      }
+
+      /* ---------------------------------
+         BUTTONS
+      --------------------------------- */
+      .rpg-button {
+        font-family: var(--font-retro);
+        font-size: 1.1em;
+        padding: 8px 16px;
+        background-color: var(--btn-bg);
+        color: var(--text-main);
+        border: 2px solid var(--btn-border);
+        border-radius: 4px;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: all 0.1s ease;
+        box-shadow: 0 4px 0 rgba(0,0,0,0.5);
+      }
+
+      .rpg-button:hover {
+        background-color: var(--btn-hover);
+        border-color: var(--panel-border);
+        color: #fff;
+      }
+
+      .rpg-button:active {
+        transform: translateY(4px);
+        box-shadow: none;
+      }
+
+      .bag-button {
+        position: absolute;
+        bottom: 15px; right: 15px;
+        font-size: 2em;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        pointer-events: auto;
+        padding: 0;
+        text-shadow: 2px 2px 0px #000;
+      }
+
+      /* ---------------------------------
+         DIALOGUE BOX
+      --------------------------------- */
+      .dialogue-box {
+        position: absolute;
+        bottom: 30px;
         left: 50%;
         transform: translateX(-50%);
         width: 80%;
         max-width: 800px;
-        background-color: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 20px;
-        border: 2px solid #333;
-        border-radius: 10px;
-        font-family: monospace;
         display: none; /* Hidden by default */
-        box-sizing: border-box;
         z-index: 1000;
-      ">
-        <p id="dialogueSpeaker" style="font-weight: bold; color: #ffd700; margin-bottom: 10px;"></p>
-        <p id="dialogueText" style="margin-bottom: 15px; line-height: 1.5;"></p>
-        <div style="text-align: right; font-size: 0.9em; color: #aaa;">
-          Click to continue
+        pointer-events: auto;
+        cursor: pointer;
+      }
+
+      .dialogue-speaker {
+        font-family: var(--font-fantasy);
+        font-size: 1.4em;
+        color: var(--text-highlight);
+        margin: 0 0 10px 0;
+        letter-spacing: 1px;
+      }
+
+      .dialogue-text {
+        font-size: 1.3em;
+        line-height: 1.4;
+        margin: 0 0 15px 0;
+      }
+
+      .dialogue-prompt {
+        text-align: right;
+        font-size: 1em;
+        color: #888;
+        animation: pulse 1s infinite alternate;
+      }
+
+      @keyframes pulse {
+        0% { opacity: 0.5; }
+        100% { opacity: 1; }
+      }
+
+      /* ---------------------------------
+         INVENTORY PANEL
+      --------------------------------- */
+      .inventory-panel {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50%;
+        max-width: 500px;
+        height: 70%;
+        max-height: 600px;
+        display: none; /* Hidden by default */
+        z-index: 1001;
+        pointer-events: auto;
+        overflow-y: auto;
+      }
+
+      .inventory-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .inventory-item {
+        padding: 10px;
+        border-bottom: 1px solid #555;
+        cursor: pointer;
+      }
+
+      .inventory-item:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+
+      /* Scrollbar styling for inventory */
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg-color);
+        border-left: 1px solid var(--panel-border);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--btn-border);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--panel-border);
+      }
+
+      .close-prompt {
+        text-align: center;
+        font-size: 1em;
+        color: #888;
+        margin-top: 20px;
+        border-top: 1px dashed #555;
+        padding-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="game-container">
+        <!-- Scale the canvas down slightly via CSS to fit typical previews nicely, keeps pixel aspect ratio -->
+        <canvas id="gameCanvas" width="1280" height="720" style="max-width: 100%; max-height: 100vh;"></canvas>
+
+        <div id="hudOverlay" class="hud-overlay">
+
+          <!-- Top Left: Health -->
+          <div class="hud-element" style="position: absolute; top: 15px; left: 15px; color: var(--health-red); font-size: 1.2em; font-weight: bold; text-shadow: 1px 1px 0 #000;">
+            HP: <span id="playerHealth">100/100</span>
+          </div>
+
+          <!-- Top Center: Level Display -->
+          <div id="levelDisplay" class="hud-element level-display">Level 1: The Dungeon</div>
+
+          <!-- Top Right: Collapsible Menu -->
+          <div class="menu-container">
+            <button id="menuToggleButton" class="rpg-button">Menu ☰</button>
+            <div id="hudButtons" class="hud-buttons">
+              <button id="pauseButton" class="rpg-button btn-danger">Pause</button>
+              <button id="saveButton" class="rpg-button btn-success">Save</button>
+              <button id="loadButton" class="rpg-button btn-primary">Load</button>
+              <button id="skipDialogueButton" class="rpg-button btn-warning">Skip</button>
+            </div>
+          </div>
+
+          <!-- Bottom Center: Instructions -->
+          <div class="hud-element" style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); font-size: 0.9em; color: #aaa; pointer-events: none;">
+            L-Click: Interact | R-Click: Move
+          </div>
+
+          <!-- Bottom Right: Inventory Bag -->
+          <button id="inventoryButton" class="rpg-button bag-button">🎒</button>
+
+          <!-- Bottom Left: Dev Tools -->
+          <div class="dev-tools-wrapper">
+            <div id="devToolsPanel" class="rpg-panel dev-tools-panel">
+              <div id="fpsCounter" class="fps-counter">FPS: 60</div>
+              <div><strong>Player:</strong> <span id="playerCoords">0, 0</span></div>
+              <div><strong>Mouse:</strong> <span id="mouseCoords">0, 0</span></div>
+            </div>
+            <label class="hud-element" style="cursor: pointer; display: inline-flex; align-items: center; gap: 8px; width: fit-content; font-size: 0.9em;">
+              <input type="checkbox" id="devToolsCheckbox" style="cursor: pointer;"> Dev Tools
+            </label>
+          </div>
+
         </div>
       </div>
 
+      <!-- Dialogue Box -->
+      <div id="dialogueBox" class="rpg-panel dialogue-box">
+        <p id="dialogueSpeaker" class="dialogue-speaker"></p>
+        <p id="dialogueText" class="dialogue-text"></p>
+        <div class="dialogue-prompt">▼ Click to continue ▼</div>
+      </div>
+
       <!-- Inventory Panel -->
-      <div id="inventoryPanel" style="
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 60%;
-        max-width: 600px;
-        height: 70%;
-        max-height: 500px;
-        background-color: rgba(0, 0, 0, 0.9);
-        color: white;
-        padding: 20px;
-        border: 2px solid #333;
-        border-radius: 10px;
-        font-family: monospace;
-        display: none; /* Hidden by default */
-        box-sizing: border-box;
-        z-index: 1001;
-        overflow-y: auto;
-      ">
-        <h2 style="text-align: center; color: #00ff00; margin-top: 0;">Inventory</h2>
-        <ul id="inventoryList" style="list-style: none; padding: 0;">
-          <!-- Inventory items will be listed here -->
+      <div id="inventoryPanel" class="rpg-panel inventory-panel">
+        <h2 class="panel-title">Inventory</h2>
+        <ul id="inventoryList" class="inventory-list">
+          <!-- Inventory items populated by engine -->
         </ul>
-        <div style="text-align: right; font-size: 0.9em; color: #aaa; margin-top: 15px;">
-          Click "Inventory" button to close
-        </div>
+        <div class="close-prompt">Click the Bag icon to close</div>
       </div>
     </div>
+
+    <!-- UI Toggle Logic -->
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // Menu Toggle
+        const menuBtn = document.getElementById('menuToggleButton');
+        const hudBtns = document.getElementById('hudButtons');
+        menuBtn.addEventListener('click', () => {
+          hudBtns.classList.toggle('open');
+        });
+
+        // Dev Tools Toggle
+        const devCheckbox = document.getElementById('devToolsCheckbox');
+        const devPanel = document.getElementById('devToolsPanel');
+        devCheckbox.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            devPanel.classList.add('open');
+          } else {
+            devPanel.classList.remove('open');
+          }
+        });
+      });
+    </script>
+
+    <!-- The actual game engine script -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

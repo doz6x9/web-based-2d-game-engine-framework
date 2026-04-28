@@ -23,10 +23,6 @@ async function initializeGame() {
     await engine.init(canvas, gameWidth, gameHeight);
     console.log('GameEngine initialized successfully.');
 
-    // Initialize the demo scene (game-specific content)
-    engine.initializeDemoScene();
-    console.log('Demo scene initialized successfully.');
-
     // Update UI with player position
     setInterval(() => {
       const playerPos = engine.getPlayerPosition();

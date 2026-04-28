@@ -54,6 +54,11 @@ export class NPCAISystem {
     for (const npc of this.npcs.values()) {
       if (!npc.isActive) continue;
 
+      // Distance culling: Skip AI calculations if the NPC is too far from the player
+      if (npc.position.manhattanDistance(playerPosition) > 15) {
+        continue;
+      }
+
       // Update behavior based on conditions
       this.updateNPCBehavior(npc, playerPosition);
 

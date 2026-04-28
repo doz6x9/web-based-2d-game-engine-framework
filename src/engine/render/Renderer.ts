@@ -3,6 +3,7 @@ import { Vector } from '../core/Vector';
 import { GameMap, MapLayer } from '../map/MapLayer';
 import { FogOfWar, FogState } from '../algorithms/FogOfWar';
 import { Particle } from './Particles';
+import { TileRegistry } from '../core/TileRegistry';
 
 /**
  * Camera for view management
@@ -79,7 +80,6 @@ export class Renderer {
   public camera!: Camera; // Initialized in init()
   public tileSize: number;
   private layers: Map<string, PIXI.Container> = new Map();
-  private tileColors: Map<number, number> = new Map();
   private textures: Map<string, PIXI.Texture> = new Map();
 
   // Dedicated containers for dynamic elements
@@ -93,6 +93,11 @@ export class Renderer {
   private fogGraphics!: PIXI.Graphics;
   private fovGraphics!: PIXI.Graphics;
   private markerGraphics!: PIXI.Graphics;
+
+  // Sprite Pooling for ultra-fast Tilemap rendering
+  private tileSpritePool: PIXI.Sprite[] = [];
+  private poolIndex: number = 0;
+  private fallbackTexture!: PIXI.Texture;
 
   constructor(tileSize: number = 32) {
     this.tileSize = tileSize;
@@ -126,41 +131,16 @@ export class Renderer {
     this.markerContainer.addChild(this.markerGraphics);
 
     // Add containers to stage in desired z-order
-    this.stage.addChild(this.fogContainer);
-    this.stage.addChild(this.fovContainer);
     this.stage.addChild(this.spriteContainer);
     this.stage.addChild(this.particleContainer);
+    this.stage.addChild(this.fogContainer);
+    this.stage.addChild(this.fovContainer);
     this.stage.addChild(this.markerContainer);
 
-    // Initialize tile colors
-    this.initializeTileColors();
-  }
-
-  /**
-   * Initialize tile color palette
-   */
-  private initializeTileColors(): void {
-    this.tileColors.set(0, 0x2d5016); // Empty/Grass
-    this.tileColors.set(1, 0x1a1a1a); // Wall
-    this.tileColors.set(2, 0x4a7c2c); // Grass
-    this.tileColors.set(3, 0x6b4423); // Swamp
-    this.tileColors.set(4, 0xc4a747); // Road
-    this.tileColors.set(5, 0x2980b9); // Water
-    
-    // New environmental tiles
-    this.tileColors.set(6, 0x2d5a1a); // Tall Grass
-    this.tileColors.set(7, 0x2d5016); // Tree
-    this.tileColors.set(8, 0x696969); // Stone Wall
-    this.tileColors.set(9, 0x8b4513); // Wood Wall
-    this.tileColors.set(10, 0x4a90e2); // Shallow Water
-    this.tileColors.set(11, 0x1d4a7d); // Deep Water
-  }
-
-  /**
-   * Set tile color
-   */
-  setTileColor(tileType: number, color: number): void {
-    this.tileColors.set(tileType, color);
+    // Generate a simple 1x1 white texture for coloring fallbacks without using heavy PIXI.Graphics
+    const graphics = new PIXI.Graphics();
+    graphics.rect(0, 0, this.tileSize, this.tileSize).fill(0xFFFFFF);
+    this.fallbackTexture = this.app.renderer.generateTexture(graphics);
   }
 
   /**
@@ -175,8 +155,7 @@ export class Renderer {
         this.textures.set(asset.id, texture);
         console.log(`Renderer: Loaded asset: ${asset.id} from ${asset.path}`);
       } catch (error) {
-        console.error(`Renderer: Failed to load asset: ${asset.id} from ${asset.path}`, error);
-        throw error; // Re-throw to propagate the error
+        console.warn(`Renderer: Failed to load asset (it may not be uploaded yet): ${asset.id} from ${asset.path}`);
       }
     }
     console.log('Renderer: All assets processed.');
@@ -190,35 +169,141 @@ export class Renderer {
   }
 
   /**
-   * Render a map with multiple layers
+   * Clear map cache so it redraws on next render
+   */
+  clearMapCache(): void {
+    for (const layer of this.layers.values()) {
+        layer.destroy({ children: true });
+    }
+    this.layers.clear();
+    // Empty the pool so we recreate sprites fresh on new map
+    this.tileSpritePool = [];
+  }
+
+  /**
+   * Fetches a sprite from the pre-allocated pool, expanding it if necessary.
+   */
+  private getSpriteFromPool(): PIXI.Sprite {
+    if (this.poolIndex >= this.tileSpritePool.length) {
+      const sprite = new PIXI.Sprite();
+      this.tileSpritePool.push(sprite);
+      return sprite;
+    }
+    return this.tileSpritePool[this.poolIndex++];
+  }
+
+  /**
+   * Render a map with multiple layers (Now fully optimized with Camera Culling)
    */
   renderMap(map: GameMap): void {
-    // Only draw map layers if they haven't been drawn yet or map has changed
-    // This prevents redrawing static map tiles every frame
-    if (this.layers.size === 0 || this.layers.get('layer-0')?.children.length === 0) {
-      // Clear existing layers (excluding fog, fov, markers, sprites containers)
+    // 1. Ensure layer containers exist
+    if (this.layers.size === 0) {
       this.stage.removeChildren();
-      this.layers.clear();
 
-      const layers = map.getLayers();
+      let zIndex = 0;
+      for (let i = 0; i < map.getLayers().length; i++) {
+        const layer = map.getLayers()[i];
+        if (layer.getName() === 'collision') continue; // Skip rendering collision mask
 
-      // Render each layer bottom-up
-      for (let i = 0; i < layers.length; i++) {
+        // Standard container is perfectly fast since we are applying Camera Culling.
+        // It avoids the strict API limitations of ParticleContainer in newer PixiJS versions.
         const layerContainer = new PIXI.Container();
-        // Insert map layers below dynamic containers
-        this.stage.addChildAt(layerContainer, i);
+        this.stage.addChildAt(layerContainer, zIndex++);
         this.layers.set(`layer-${i}`, layerContainer);
-
-        this.renderLayer(layerContainer, layers[i]);
       }
 
-      // Re-add dynamic containers to maintain z-order after map layers
-      this.stage.addChild(this.fogContainer);
-      this.stage.addChild(this.fovContainer);
-      this.stage.addChild(this.spriteContainer);
-      this.stage.addChild(this.particleContainer);
-      this.stage.addChild(this.markerContainer);
+      // Re-add dynamic containers to maintain proper z-order
+      this.stage.addChild(this.spriteContainer);   // Sprites above map
+      this.stage.addChild(this.particleContainer); // Particles above sprites
+      this.stage.addChild(this.fogContainer);      // Fog above everything (darkens unexplored/explored)
+      this.stage.addChild(this.fovContainer);      // FOV indicator above fog
+      this.stage.addChild(this.markerContainer);   // Markers on top of everything
     }
+
+    // 2. Reset pool index for this frame
+    this.poolIndex = 0;
+
+    // 3. Calculate Visible Camera Bounds (Culling)
+    const cameraPos = this.camera.getPosition();
+    const startX = Math.max(0, Math.floor(cameraPos.x));
+    const startY = Math.max(0, Math.floor(cameraPos.y));
+    // Render an extra 1-2 tiles around the border to prevent popping
+    const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
+    const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
+
+    // 4. Render only visible tiles
+    const layers = map.getLayers();
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      if (layer.getName() === 'collision') continue; // Don't render the collision layer mask
+
+      const container = this.layers.get(`layer-${i}`);
+      if (!container) continue;
+
+      // Safely clear the container
+      container.removeChildren();
+
+      const data = layer.getData();
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          const tileType = data[y][x];
+
+          // Skip drawing empty tiles
+          if (tileType === 0 && layer.getName() === 'collision') {
+            continue;
+          }
+
+          const textureId = this.getTextureForTile(tileType, x, y, data);
+          const sprite = this.getSpriteFromPool();
+
+          if (textureId && this.textures.has(textureId)) {
+            // Render textured sprite
+            sprite.texture = this.textures.get(textureId)!;
+            sprite.tint = 0xFFFFFF; // Clear tint
+          } else {
+            // Fallback to brightly colored placeholder (hot pink) if texture hasn't loaded properly
+            // Extremely fast because it uses a 1x1 white texture colored with WebGL tint
+            const color = textureId ? 0xFF00FF : TileRegistry.getColor(tileType);
+            sprite.texture = this.fallbackTexture;
+            sprite.tint = color;
+          }
+
+          sprite.width = this.tileSize;
+          sprite.height = this.tileSize;
+          sprite.x = x * this.tileSize;
+          sprite.y = y * this.tileSize;
+
+          container.addChild(sprite);
+        }
+      }
+    }
+  }
+
+  /**
+   * Determines the correct texture ID for a given tile type, including autotiling for walls.
+   */
+  private getTextureForTile(tileType: number, x: number, y: number, data: number[][]): string | null {
+    if (tileType === 1) { // Wall autotiling (1 maps to cave_wall currently)
+      const top = y > 0 ? data[y-1][x] === 1 : false;
+      const bottom = y < data.length - 1 ? data[y+1][x] === 1 : false;
+      const left = x > 0 ? data[y][x-1] === 1 : false;
+      const right = x < data[y][x].length - 1 ? data[y][x+1] === 1 : false;
+
+      if (right && bottom && !top && !left) return 'wall_corner_tl';
+      if (left && bottom && !top && !right) return 'wall_corner_tr';
+      if (right && top && !bottom && !left) return 'wall_corner_bl';
+      if (left && top && !bottom && !right) return 'wall_corner_br';
+      if (left && right && !top && !bottom) return 'wall_horizontal';
+      if (top && bottom && !left && !right) return 'wall_vertical';
+
+      // Defaults or edge cases
+      if (left || right) return 'wall_horizontal';
+      if (top || bottom) return 'wall_vertical';
+
+      return 'cave_wall'; // fallback
+    }
+
+    return TileRegistry.getSprite(tileType);
   }
 
   /**
@@ -228,30 +313,12 @@ export class Renderer {
     container: PIXI.Container,
     layer: MapLayer,
   ): void {
-    // Clear previous layer content only if it was drawn before
-    container.removeChildren();
-
-    const data = layer.getData();
-
-    for (let y = 0; y < data.length; y++) {
-      for (let x = 0; x < data[y].length; x++) {
-        const tileType = data[y][x];
-        const color = this.tileColors.get(tileType) || 0x808080;
-
-        const rect = new PIXI.Graphics();
-        rect.rect(0, 0, this.tileSize, this.tileSize).fill(color);
-
-        rect.x = x * this.tileSize;
-        rect.y = y * this.tileSize;
-
-        container.addChild(rect);
-      }
-    }
-    console.log('Renderer: renderLayer called for ' + layer.getName());
+    // Left empty because renderMap now dynamically renders the visible tiles every frame instead of pre-rendering everything once
   }
 
   /**
    * Render fog of war overlay
+   * Optimized to only render tiles currently within the camera bounds
    */
   renderFogOfWar(
     fogOfWar: FogOfWar,
@@ -260,8 +327,17 @@ export class Renderer {
   ): void {
     this.fogGraphics.clear(); // Clear previous drawing
 
-    for (let y = 0; y < mapHeight; y++) {
-      for (let x = 0; x < mapWidth; x++) {
+    // Calculate visible bounds based on camera
+    const cameraPos = this.camera.getPosition();
+    const startX = Math.max(0, Math.floor(cameraPos.x));
+    const startY = Math.max(0, Math.floor(cameraPos.y));
+
+    // Add 1 to ensure we cover the edges completely
+    const endX = Math.min(mapWidth, Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
+    const endY = Math.min(mapHeight, Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
+
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
         const fogState = fogOfWar.getFogState(x, y);
 
         if (fogState === FogState.UNKNOWN) {
@@ -290,18 +366,7 @@ export class Renderer {
    */
   drawFOV(visibleCells: Set<string>, mapWidth: number, mapHeight: number): void {
     this.fovGraphics.clear(); // Clear previous drawing
-
-    for (const cellKey of visibleCells) {
-      const [x, y] = cellKey.split(',').map(Number);
-      if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
-        this.fovGraphics.rect(
-          x * this.tileSize,
-          y * this.tileSize,
-          this.tileSize,
-          this.tileSize
-        ).stroke({ width: 2, color: 0xff0000, alpha: 0.5 });
-      }
-    }
+    // Grid drawing removed
   }
 
   /**
@@ -406,6 +471,17 @@ export class Renderer {
    */
   getApp(): PIXI.Application {
     return this.app;
+  }
+
+  /**
+   * Applies the camera transform to the main stage.
+   * This should be called each frame after the camera position is updated.
+   */
+  applyCameraTransform(): void {
+    const cameraPos = this.camera.getPosition();
+    // Translate the stage to simulate camera movement
+    this.stage.x = -cameraPos.x * this.tileSize;
+    this.stage.y = -cameraPos.y * this.tileSize;
   }
 
   /**
