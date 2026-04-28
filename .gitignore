@@ -7,13 +7,14 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies and Build
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
-.vscode/*
+# Editor and System
+.vscode/
 !.vscode/extensions.json
 .idea
 .DS_Store
@@ -24,8 +25,7 @@ dist-ssr
 *.sw?
 .github
 
-.gitignore
-
+# Python Map Scripts and References
 generate_map.py
 AVAILABLE_TEXTURES.md
 TILES.md
