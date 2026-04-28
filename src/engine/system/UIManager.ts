@@ -1,18 +1,16 @@
-import { KeyboardHandler, KeyboardEventType } from '../interaction/KeyboardHandler';
+import { KeyboardHandler } from '../interaction/KeyboardHandler';
 import { DialogueManager, DialogueLine } from './DialogueManager';
 import { Inventory } from '../core/Inventory';
-import { Item } from '../core/Item';
 
 export class UIManager {
   private dialogueManager: DialogueManager;
-  private keyboardHandler: KeyboardHandler;
   private inventory: Inventory;
 
   private inventoryPanel: HTMLElement | null;
   private inventoryList: HTMLElement | null;
   private inventoryButton: HTMLElement | null;
   private playerHealthElement: HTMLElement | null;
-  
+
   // HUD elements
   private fpsCounter: HTMLElement | null;
   private levelDisplay: HTMLElement | null;
@@ -21,21 +19,21 @@ export class UIManager {
   private loadButton: HTMLElement | null;
   private skipDialogueButton: HTMLElement | null;
 
-  private isInventoryOpen: boolean = false;
-  
+  // FIXED: Renamed to _isInventoryOpen to avoid colliding with the method name
+  private _isInventoryOpen: boolean = false;
+
   // Callback functions for HUD buttons
   private onPauseCallback: (() => void) | null = null;
   private onSaveCallback: (() => void) | null = null;
   private onLoadCallback: (() => void) | null = null;
   private onSkipDialogueCallback: (() => void) | null = null;
-  
+
   // FPS tracking
   private frameCount: number = 0;
   private lastFpsUpdateTime: number = Date.now();
   private currentFps: number = 0;
 
   constructor(keyboardHandler: KeyboardHandler, inventory: Inventory) {
-    this.keyboardHandler = keyboardHandler;
     this.inventory = inventory;
     this.dialogueManager = new DialogueManager(keyboardHandler);
 
@@ -43,7 +41,7 @@ export class UIManager {
     this.inventoryList = document.getElementById('inventoryList');
     this.inventoryButton = document.getElementById('inventoryButton');
     this.playerHealthElement = document.getElementById('playerHealth');
-    
+
     // Initialize HUD elements
     this.fpsCounter = document.getElementById('fpsCounter');
     this.levelDisplay = document.getElementById('levelDisplay');
@@ -63,26 +61,26 @@ export class UIManager {
         this.toggleInventory();
       });
     }
-    
+
     // HUD Buttons
     if (this.pauseButton) {
       this.pauseButton.addEventListener('click', () => {
         if (this.onPauseCallback) this.onPauseCallback();
       });
     }
-    
+
     if (this.saveButton) {
       this.saveButton.addEventListener('click', () => {
         if (this.onSaveCallback) this.onSaveCallback();
       });
     }
-    
+
     if (this.loadButton) {
       this.loadButton.addEventListener('click', () => {
         if (this.onLoadCallback) this.onLoadCallback();
       });
     }
-    
+
     if (this.skipDialogueButton) {
       this.skipDialogueButton.addEventListener('click', () => {
         if (this.onSkipDialogueCallback) this.onSkipDialogueCallback();
@@ -104,9 +102,9 @@ export class UIManager {
   // --- Inventory Management ---
   toggleInventory(): void {
     if (this.inventoryPanel) {
-      this.isInventoryOpen = !this.isInventoryOpen;
-      this.inventoryPanel.style.display = this.isInventoryOpen ? 'block' : 'none';
-      if (this.isInventoryOpen) {
+      this._isInventoryOpen = !this._isInventoryOpen; // FIXED: Using new variable name
+      this.inventoryPanel.style.display = this._isInventoryOpen ? 'block' : 'none';
+      if (this._isInventoryOpen) {
         this.updateInventoryDisplay(this.inventory); // Update display when opening
         console.log('Inventory opened.');
       } else {
@@ -139,7 +137,7 @@ export class UIManager {
   }
 
   isInventoryOpen(): boolean {
-    return this.isInventoryOpen;
+    return this._isInventoryOpen; // FIXED: Using new variable name
   }
 
   /**
@@ -159,7 +157,7 @@ export class UIManager {
     this.frameCount++;
     const currentTime = Date.now();
     const elapsed = currentTime - this.lastFpsUpdateTime;
-    
+
     if (elapsed >= 1000) { // Update FPS every second
       this.currentFps = Math.round((this.frameCount * 1000) / elapsed);
       if (this.fpsCounter) {
@@ -219,7 +217,7 @@ export class UIManager {
 
   // --- General UI State ---
   isUIOpen(): boolean {
-    return this.isDialogueActive() || this.isInventoryOpen;
+    return this.isDialogueActive() || this.isInventoryOpen(); // FIXED: added () to call the method
   }
 
   /**

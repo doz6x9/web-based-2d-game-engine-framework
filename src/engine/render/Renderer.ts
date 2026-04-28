@@ -1,6 +1,6 @@
 import * as PIXI from 'pixi.js';
 import { Vector } from '../core/Vector';
-import { GameMap, MapLayer } from '../map/MapLayer';
+import { GameMap } from '../map/MapLayer';
 import { FogOfWar, FogState } from '../algorithms/FogOfWar';
 import { Particle } from './Particles';
 import { TileRegistry } from '../core/TileRegistry';
@@ -306,15 +306,6 @@ export class Renderer {
     return TileRegistry.getSprite(tileType);
   }
 
-  /**
-   * Render a single layer (called only once per layer when map loads)
-   */
-  private renderLayer(
-    container: PIXI.Container,
-    layer: MapLayer,
-  ): void {
-    // Left empty because renderMap now dynamically renders the visible tiles every frame instead of pre-rendering everything once
-  }
 
   /**
    * Render fog of war overlay

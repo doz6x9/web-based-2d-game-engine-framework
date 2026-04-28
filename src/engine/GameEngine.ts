@@ -9,7 +9,7 @@ import { NPC, Enemy, MapObject, MapObjectType, InteractiveObject } from './core/
 import { TileRegistry } from './core/TileRegistry';
 import { Renderer } from './render/Renderer';
 import { MouseHandler, MouseEventType } from './interaction/MouseHandler';
-import { KeyboardHandler, KeyboardEventType } from './interaction/KeyboardHandler';
+import { KeyboardHandler } from './interaction/KeyboardHandler';
 import { AnimationLibrary } from './render/Animation';
 import { ParticleSystem, ParticlePresets } from './render/Particles';
 import { SaveLoadManager, QuickSaveManager } from './system/SaveLoadManager';
@@ -20,7 +20,7 @@ import { Item, ItemType } from './core/Item';
 import { UIManager } from './system/UIManager';
 import * as PIXI from 'pixi.js'; // Import PIXI for sprite type
 import { AudioManager } from './system/AudioManager';
-import bgmUrl from '../assets/audio/bgm.wav';
+import bgmUrl from '../assets/audio/bgm.mp3';
 
 /**
  * Main Game Engine
@@ -347,7 +347,7 @@ export class GameEngine {
               "KEY": ItemType.KEY_ITEM,
               "KEY_ITEM": ItemType.KEY_ITEM
           };
-          const iType = itemTypeMap[data.item_type] || ItemType.MISC;
+          const iType = itemTypeMap[data.item_type] || ItemType.GENERIC;
 
           const item = new Item(
               data.id || `item_${x}_${y}`,

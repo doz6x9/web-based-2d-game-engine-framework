@@ -1,4 +1,4 @@
-import { KeyboardHandler, KeyboardEventType } from '../interaction/KeyboardHandler';
+import { KeyboardHandler } from '../interaction/KeyboardHandler';
 
 export interface DialogueLine {
   speaker: string;
