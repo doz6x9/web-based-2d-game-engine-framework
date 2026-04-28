@@ -185,16 +185,25 @@ The included demo demonstrates:
 - ✅ Camera following player
 - ✅ Mouse-based grid coordinate system
 - ✅ Responsive UI with coordinate display
+- ✅ Basic Combat System: Player attacks enemies, enemies retaliate, health updates, and game over condition.
+- ✅ Weapon Damage Bonus: Player deals increased damage when equipped with a weapon.
+- ✅ Consumable Items: Potions can be used to restore player health.
+- ✅ Dynamic Level Loading: Transitions between different maps (e.g., Level 1 to Level 2).
+- ✅ Dynamic Map Name Display: The UI now shows the actual name of the loaded map.
+- ✅ Mute/Unmute Audio: Toggle background music on and off.
 
 ## Controls
 
 | Action | Effect |
 |--------|--------|
-| Left Click | Select target cell (shows pathfinding visualization) |
+| Left Click | Select target cell (shows pathfinding visualization) / Interact with objects (e.g., pick up items, open chests, attack enemies) |
 | Right Click | Move player to clicked cell |
 | Mouse Move | Updates coordinate display |
-
-The FOV is dynamically recalculated based on the player's position, and the fog of war reflects explored areas and current visibility.
+| Mute Button | Toggles background music on/off |
+| Pause Button | Pauses/Resumes the game |
+| Save Button | Saves the current game state |
+| Load Button | Loads the last saved game state |
+| Skip Button | Skips current dialogue |
 
 ## Architecture Highlights
 
@@ -232,11 +241,11 @@ The FOV is dynamically recalculated based on the player's position, and the fog 
 - [ ] Dynamic pathfinding weights based on FOV
 - [ ] Tile-based animation system
 - [ ] Particle effects
-- [ ] Sound effects and music system
-- [ ] Save/load game state
 - [ ] Multiplayer support
 - [ ] Mobile touch controls
 - [ ] Asset loader with caching
+- [ ] More sophisticated inventory and equipment system
+- [ ] NPC AI improvements
 
 ## License
 

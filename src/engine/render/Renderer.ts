@@ -95,8 +95,6 @@ export class Renderer {
   private markerGraphics!: PIXI.Graphics;
 
   // Sprite Pooling for ultra-fast Tilemap rendering
-  private tileSpritePool: PIXI.Sprite[] = [];
-  private poolIndex: number = 0;
   private fallbackTexture!: PIXI.Texture;
 
   constructor(tileSize: number = 32) {
@@ -172,112 +170,104 @@ export class Renderer {
    * Clear map cache so it redraws on next render
    */
   clearMapCache(): void {
-    for (const layer of this.layers.values()) {
-        layer.destroy({ children: true });
+      for (const layer of this.layers.values()) {
+          layer.destroy({ children: true });
+      }
+      this.layers.clear();
     }
-    this.layers.clear();
-    // Empty the pool so we recreate sprites fresh on new map
-    this.tileSpritePool = [];
-  }
+
 
   /**
-   * Fetches a sprite from the pre-allocated pool, expanding it if necessary.
-   */
-  private getSpriteFromPool(): PIXI.Sprite {
-    if (this.poolIndex >= this.tileSpritePool.length) {
-      const sprite = new PIXI.Sprite();
-      this.tileSpritePool.push(sprite);
-      return sprite;
-    }
-    return this.tileSpritePool[this.poolIndex++];
-  }
-
-  /**
-   * Render a map with multiple layers (Now fully optimized with Camera Culling)
+   * Render a map with multiple layers ( fully optimized with Camera Culling)
    */
   renderMap(map: GameMap): void {
-    // 1. Ensure layer containers exist
-    if (this.layers.size === 0) {
-      this.stage.removeChildren();
+      // 1. Ensure layer containers exist
+      if (this.layers.size === 0) {
+        this.stage.removeChildren();
 
-      let zIndex = 0;
-      for (let i = 0; i < map.getLayers().length; i++) {
-        const layer = map.getLayers()[i];
-        if (layer.getName() === 'collision') continue; // Skip rendering collision mask
+        let zIndex = 0;
+        for (let i = 0; i < map.getLayers().length; i++) {
+          const layer = map.getLayers()[i];
+          if (layer.getName() === 'collision') continue;
 
-        // Standard container is perfectly fast since we are applying Camera Culling.
-        // It avoids the strict API limitations of ParticleContainer in newer PixiJS versions.
-        const layerContainer = new PIXI.Container();
-        this.stage.addChildAt(layerContainer, zIndex++);
-        this.layers.set(`layer-${i}`, layerContainer);
+          const layerContainer = new PIXI.Container();
+          this.stage.addChildAt(layerContainer, zIndex++);
+          this.layers.set(`layer-${i}`, layerContainer);
+        }
+
+        // Re-add dynamic containers to maintain proper z-order
+        this.stage.addChild(this.spriteContainer);
+        this.stage.addChild(this.particleContainer);
+        this.stage.addChild(this.fogContainer);
+        this.stage.addChild(this.fovContainer);
+        this.stage.addChild(this.markerContainer);
       }
 
-      // Re-add dynamic containers to maintain proper z-order
-      this.stage.addChild(this.spriteContainer);   // Sprites above map
-      this.stage.addChild(this.particleContainer); // Particles above sprites
-      this.stage.addChild(this.fogContainer);      // Fog above everything (darkens unexplored/explored)
-      this.stage.addChild(this.fovContainer);      // FOV indicator above fog
-      this.stage.addChild(this.markerContainer);   // Markers on top of everything
-    }
+      // 2. Calculate Visible Camera Bounds (Culling)
+      const cameraPos = this.camera.getPosition();
+      const startX = Math.max(0, Math.floor(cameraPos.x));
+      const startY = Math.max(0, Math.floor(cameraPos.y));
+      const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
+      const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
 
-    // 2. Reset pool index for this frame
-    this.poolIndex = 0;
+      // 3. Render only visible tiles
+      const layers = map.getLayers();
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        if (layer.getName() === 'collision') continue;
 
-    // 3. Calculate Visible Camera Bounds (Culling)
-    const cameraPos = this.camera.getPosition();
-    const startX = Math.max(0, Math.floor(cameraPos.x));
-    const startY = Math.max(0, Math.floor(cameraPos.y));
-    // Render an extra 1-2 tiles around the border to prevent popping
-    const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
-    const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
+        const container = this.layers.get(`layer-${i}`);
+        if (!container) continue;
 
-    // 4. Render only visible tiles
-    const layers = map.getLayers();
-    for (let i = 0; i < layers.length; i++) {
-      const layer = layers[i];
-      if (layer.getName() === 'collision') continue; // Don't render the collision layer mask
+        const data = layer.getData();
+        let childIndex = 0; // Track existing children
 
-      const container = this.layers.get(`layer-${i}`);
-      if (!container) continue;
+        for (let y = startY; y < endY; y++) {
+          for (let x = startX; x < endX; x++) {
+            const tileType = data[y][x];
 
-      // Safely clear the container
-      container.removeChildren();
+            // Skip drawing empty tiles
+            if (tileType === 0 && layer.getName() === 'collision') {
+              continue;
+            }
 
-      const data = layer.getData();
-      for (let y = startY; y < endY; y++) {
-        for (let x = startX; x < endX; x++) {
-          const tileType = data[y][x];
+            const textureId = this.getTextureForTile(tileType, x, y, data);
 
-          // Skip drawing empty tiles
-          if (tileType === 0 && layer.getName() === 'collision') {
-            continue;
+            // FIXED POOLING: Re-use existing container children natively
+            let sprite: PIXI.Sprite;
+            if (childIndex < container.children.length) {
+              sprite = container.children[childIndex] as PIXI.Sprite;
+              sprite.visible = true; // Turn it back on
+            } else {
+              // Only create a new sprite if the container needs to grow to fit the screen
+              sprite = new PIXI.Sprite();
+              container.addChild(sprite);
+            }
+
+            if (textureId && this.textures.has(textureId)) {
+              sprite.texture = this.textures.get(textureId)!;
+              sprite.tint = 0xFFFFFF; // Clear tint
+            } else {
+              const color = textureId ? 0xFF00FF : TileRegistry.getColor(tileType);
+              sprite.texture = this.fallbackTexture;
+              sprite.tint = color;
+            }
+
+            sprite.width = this.tileSize;
+            sprite.height = this.tileSize;
+            sprite.x = x * this.tileSize;
+            sprite.y = y * this.tileSize;
+
+            childIndex++;
           }
+        }
 
-          const textureId = this.getTextureForTile(tileType, x, y, data);
-          const sprite = this.getSpriteFromPool();
-
-          if (textureId && this.textures.has(textureId)) {
-            // Render textured sprite
-            sprite.texture = this.textures.get(textureId)!;
-            sprite.tint = 0xFFFFFF; // Clear tint
-          } else {
-            // Fallback to brightly colored placeholder (hot pink) if texture hasn't loaded properly
-            // Extremely fast because it uses a 1x1 white texture colored with WebGL tint
-            const color = textureId ? 0xFF00FF : TileRegistry.getColor(tileType);
-            sprite.texture = this.fallbackTexture;
-            sprite.tint = color;
-          }
-
-          sprite.width = this.tileSize;
-          sprite.height = this.tileSize;
-          sprite.x = x * this.tileSize;
-          sprite.y = y * this.tileSize;
-
-          container.addChild(sprite);
+        // HIDE any extra sprites that are off-screen this frame
+        for (let j = childIndex; j < container.children.length; j++) {
+          container.children[j].visible = false;
         }
       }
     }
-  }
 
   /**
    * Determines the correct texture ID for a given tile type, including autotiling for walls.
@@ -311,46 +301,23 @@ export class Renderer {
    * Render fog of war overlay
    * Optimized to only render tiles currently within the camera bounds
    */
-  renderFogOfWar(
-    fogOfWar: FogOfWar,
-    mapWidth: number,
-    mapHeight: number
-  ): void {
-    this.fogGraphics.clear(); // Clear previous drawing
+  renderFogOfWar(fogOfWar: FogOfWar, mapWidth: number, mapHeight: number): void {
+      this.fogGraphics.clear();
 
-    // Calculate visible bounds based on camera
-    const cameraPos = this.camera.getPosition();
-    const startX = Math.max(0, Math.floor(cameraPos.x));
-    const startY = Math.max(0, Math.floor(cameraPos.y));
+      // Draw the entire map's fog ONCE.
+      // PixiJS will automatically pan it with the camera!
+      for (let y = 0; y < mapHeight; y++) {
+        for (let x = 0; x < mapWidth; x++) {
+          const fogState = fogOfWar.getFogState(x, y);
 
-    // Add 1 to ensure we cover the edges completely
-    const endX = Math.min(mapWidth, Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
-    const endY = Math.min(mapHeight, Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
-
-    for (let y = startY; y < endY; y++) {
-      for (let x = startX; x < endX; x++) {
-        const fogState = fogOfWar.getFogState(x, y);
-
-        if (fogState === FogState.UNKNOWN) {
-          // Dark fog (unexplored)
-          this.fogGraphics.rect(
-            x * this.tileSize,
-            y * this.tileSize,
-            this.tileSize,
-            this.tileSize
-          ).fill({ color: 0x000000, alpha: 0.8 });
-        } else if (fogState === FogState.EXPLORED) {
-          // Light fog (explored but not visible)
-          this.fogGraphics.rect(
-            x * this.tileSize,
-            y * this.tileSize,
-            this.tileSize,
-            this.tileSize
-          ).fill({ color: 0x000000, alpha: 0.5 });
+          if (fogState === FogState.UNKNOWN) {
+            this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.8 });
+          } else if (fogState === FogState.EXPLORED) {
+            this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.5 });
+          }
         }
       }
     }
-  }
 
   /**
    * Draw FOV visualization

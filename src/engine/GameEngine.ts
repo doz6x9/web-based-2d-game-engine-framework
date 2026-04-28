@@ -44,6 +44,8 @@ export class GameEngine {
   private editor: LevelEditor;
 
   private currentPlayerPos: Vector = new Vector(10, 10);
+  private lastFovPos: Vector = new Vector(-1, -1);
+    private cachedVisibleCells: Set<string> = new Set();
   private selectedCell: Vector | null = null;
   private path: Vector[] = [];
 
@@ -236,7 +238,7 @@ export class GameEngine {
     this.fogOfWar = new FogOfWar(this.map.getWidth(), this.map.getHeight(), this.fov);
     this.renderer.getCamera().mapWidth = this.map.getWidth();
     this.renderer.getCamera().mapHeight = this.map.getHeight();
-
+    this.lastFovPos = new Vector(-1, -1);
     this.render();
   }
 
@@ -545,10 +547,14 @@ export class GameEngine {
     this.renderer.getCamera().centerOn(this.targetPlayerPos);
     this.renderer.applyCameraTransform();
     this.renderer.renderMap(this.map);
-    const visibleCells = this.fov.calculateFOV(this.currentPlayerPos, 10);
-    this.fogOfWar.updateFromFOV(visibleCells);
-    this.renderer.renderFogOfWar(this.fogOfWar, this.map.getWidth(), this.map.getHeight());
-    this.renderer.drawFOV(visibleCells, this.map.getWidth(), this.map.getHeight());
+    if (!this.currentPlayerPos.equals(this.lastFovPos)) {
+          this.cachedVisibleCells = this.fov.calculateFOV(this.currentPlayerPos, 10);
+          this.fogOfWar.updateFromFOV(this.cachedVisibleCells);
+          this.renderer.renderFogOfWar(this.fogOfWar, this.map.getWidth(), this.map.getHeight());
+          this.renderer.drawFOV(this.cachedVisibleCells, this.map.getWidth(), this.map.getHeight());
+          this.lastFovPos = this.currentPlayerPos.clone();
+        }
+        const visibleCells = this.cachedVisibleCells;
     const cameraPos = this.renderer.getCamera().getPosition();
     const cameraWidth = this.renderer.getCamera().width / this.renderer.tileSize;
     const cameraHeight = this.renderer.getCamera().height / this.renderer.tileSize;
