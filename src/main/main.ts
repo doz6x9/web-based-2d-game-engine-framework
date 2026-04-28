@@ -1,12 +1,13 @@
 import './styles/main.scss';
-import { GameEngine } from './engine/GameEngine';
-import { Item, ItemType } from './engine/core/Item'; // Import Item and ItemType
-import { Vector } from './engine/core/Vector'; // Import Vector
+import { GameEngine } from '../engine/GameEngine';
+import { Item, ItemType } from '../engine/core/Item';
+import { Vector } from '../engine/core/Vector';
 
 async function initializeGame() {
   // Initialize the game engine
   const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-  const engine = new GameEngine(canvas, 1280, 720);
+  const engine = new GameEngine;
+  await engine.init(canvas, 1280, 720);
 
   // Load visual assets
   try {
@@ -53,7 +54,7 @@ async function initializeGame() {
   const mouseHandler = engine.getMouseHandler();
   mouseHandler.on(
     'move' as any,
-    (pos) => {
+    (pos: Vector) => {
       document.getElementById('mouseCoords')!.textContent = `${pos.x}, ${pos.y}`;
     }
   );

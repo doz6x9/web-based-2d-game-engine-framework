@@ -42,7 +42,18 @@ export class Inventory {
       if (existingItem.quantity > quantity) {
         existingItem.quantity -= quantity;
         console.log(`Removed ${quantity}x ${existingItem.name}. Remaining: ${existingItem.quantity}`);
-        return { ...existingItem, quantity: quantity }; // Return a "copy" of the removed portion
+
+        // Return a new Item instance instead of a spread object
+        return new Item(
+          existingItem.id,
+          existingItem.name,
+          existingItem.description,
+          existingItem.sprite,
+          existingItem.type,
+          existingItem.stackable,
+          existingItem.maxStackSize,
+          quantity
+        );
       } else {
         this.items.delete(itemId);
         console.log(`Removed all ${existingItem.name} from inventory.`);

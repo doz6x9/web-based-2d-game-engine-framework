@@ -11,7 +11,7 @@ import { TileRegistry } from '../core/TileRegistry';
 export class Camera {
   private position: Vector;
   public width: number;
-  private height: number;
+  public height: number;
   public mapWidth: number;
   public mapHeight: number;
   private tileSize: number;
@@ -287,7 +287,7 @@ export class Renderer {
       const top = y > 0 ? data[y-1][x] === 1 : false;
       const bottom = y < data.length - 1 ? data[y+1][x] === 1 : false;
       const left = x > 0 ? data[y][x-1] === 1 : false;
-      const right = x < data[y][x].length - 1 ? data[y][x+1] === 1 : false;
+      const right = x < data[y].length - 1 ? data[y][x+1] === 1 : false;
 
       if (right && bottom && !top && !left) return 'wall_corner_tl';
       if (left && bottom && !top && !right) return 'wall_corner_tr';
