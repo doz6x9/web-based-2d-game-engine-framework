@@ -1,5 +1,6 @@
 export class AudioManager {
   private bgm: HTMLAudioElement | null = null;
+  private isMuted: boolean = false; // Added to track mute state
 
   constructor() {}
 
@@ -18,6 +19,7 @@ export class AudioManager {
     this.bgm = new Audio(url);
     this.bgm.loop = true;
     this.bgm.volume = volume;
+    this.bgm.muted = this.isMuted; // Ensure the new track respects current mute state
 
     // Attempt to play immediately
     this.bgm.play().catch((error) => {
@@ -46,5 +48,23 @@ export class AudioManager {
     if (this.bgm) {
       this.bgm.volume = Math.max(0, Math.min(1, volume)); // Clamp between 0 and 1
     }
+  }
+
+  /**
+   * Mutes or unmutes the audio
+   * @param mute true to mute, false to unmute
+   */
+  public setMute(mute: boolean): void {
+    this.isMuted = mute;
+    if (this.bgm) {
+      this.bgm.muted = this.isMuted;
+    }
+  }
+
+  /**
+   * Returns current mute state
+   */
+  public getMuted(): boolean {
+    return this.isMuted;
   }
 }

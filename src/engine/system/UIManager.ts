@@ -18,6 +18,7 @@ export class UIManager {
   private saveButton: HTMLElement | null;
   private loadButton: HTMLElement | null;
   private skipDialogueButton: HTMLElement | null;
+  private muteButton: HTMLElement | null; // ADDED: Mute button reference
 
   // FIXED: Renamed to _isInventoryOpen to avoid colliding with the method name
   private _isInventoryOpen: boolean = false;
@@ -27,6 +28,7 @@ export class UIManager {
   private onSaveCallback: (() => void) | null = null;
   private onLoadCallback: (() => void) | null = null;
   private onSkipDialogueCallback: (() => void) | null = null;
+  private onMuteCallback: (() => void) | null = null; // ADDED: Mute callback
 
   // FPS tracking
   private frameCount: number = 0;
@@ -49,6 +51,7 @@ export class UIManager {
     this.saveButton = document.getElementById('saveButton');
     this.loadButton = document.getElementById('loadButton');
     this.skipDialogueButton = document.getElementById('skipDialogueButton');
+    this.muteButton = document.getElementById('muteButton'); // ADDED: Hook up the HTML element
 
     this.setupEventHandlers();
   }
@@ -86,6 +89,13 @@ export class UIManager {
         if (this.onSkipDialogueCallback) this.onSkipDialogueCallback();
         // Also try to skip dialogue via the dialogue manager
         this.dialogueManager.skip();
+      });
+    }
+
+    // ADDED: Mute button click handler
+    if (this.muteButton) {
+      this.muteButton.addEventListener('click', () => {
+        if (this.onMuteCallback) this.onMuteCallback();
       });
     }
   }
@@ -206,12 +216,29 @@ export class UIManager {
   }
 
   /**
+   * Register mute button callback
+   */
+  onMute(callback: () => void): void {
+    this.onMuteCallback = callback;
+  }
+
+  /**
    * Update pause button state
    */
   setPauseButtonState(isPaused: boolean): void {
     if (this.pauseButton) {
       this.pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
       this.pauseButton.style.backgroundColor = isPaused ? '#51cf66' : '#ff6b6b';
+    }
+  }
+
+  /**
+   * Update mute button visually
+   */
+  setMuteButtonState(isMuted: boolean): void {
+    if (this.muteButton) {
+      this.muteButton.textContent = isMuted ? 'Unmute' : 'Mute';
+      this.muteButton.style.backgroundColor = isMuted ? '#ff6b6b' : '#51cf66';
     }
   }
 

@@ -3460,6 +3460,28 @@
       "item_type": "WEAPON",
       "x": 30,
       "y": 24
+    },
+    {
+
+    "type":"ITEM",
+    "id"
+    :
+    "mana_potion",
+    "name"
+    :
+    "Mana Potion",
+    "sprite"
+    :
+    "mana_potion",
+    "item_type"
+    :
+    "CONSUMABLE",
+    "x"
+    :
+    13,
+    "y"
+    :
+    12
     }
   ]
 }
