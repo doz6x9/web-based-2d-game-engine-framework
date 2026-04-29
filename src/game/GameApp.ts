@@ -165,12 +165,18 @@ export class GameApp {
       const clickPos = new Vector(x, y);
       this.selectedCell = clickPos;
 
-      if (buttonType === 'left') {
+      if (buttonType === 'right') {
         const newPath = this.engine.pathfinder.findPath(this.currentPlayerPos, clickPos);
         this.path = newPath.length > 0 ? newPath : [];
-        this.isPlayerMoving = false; // Reset movement to start new path
+        if (this.path.length > 0) {
+          this.isPlayerMoving = true;
+          this.currentPathIndex = 0;
+          this.moveProgress = 0;
+        }
+      } else if (buttonType === 'left') {
+        // Left click for interaction
+        console.log(`[Game] Left click at ${x}, ${y}`);
       }
-      // Right-click interaction logic removed for blank slate
     });
   }
 

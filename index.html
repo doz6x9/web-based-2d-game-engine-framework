@@ -11,47 +11,47 @@
     <div id="app">
       <div class="game-container">
         <!-- Scale the canvas down slightly via CSS to fit typical previews nicely, keeps pixel aspect ratio -->
-        <canvas id="gameCanvas" width="1280" height="720" style="max-width: 100%; max-height: 100vh;"></canvas>
+        <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
         <div id="hudOverlay" class="hud-overlay">
 
           <!-- Top Left: Health -->
-          <div class="hud-element" style="position: absolute; top: 15px; left: 15px; color: #ff3b30; font-size: 1.2em; font-weight: bold; text-shadow: 1px 1px 0 #000;">
+          <div class="hud-element health-display">
             HP: <span id="playerHealth">100/100</span>
           </div>
 
           <!-- Top Center: Level Display -->
-          <div id="levelDisplay" class="hud-element level-display">Level 1: The Wilds</div>
+          <div id="levelDisplay" class="hud-element level-display">Level 1</div>
 
           <!-- Top Right: Collapsible Menu -->
           <div class="menu-container">
-            <button id="menuToggleButton" class="rpg-button">Menu ☰</button>
+            <button id="menuToggleButton" class="engine-button">Menu ☰</button>
             <div id="hudButtons" class="hud-buttons">
-                <button id="muteButton" class="rpg-button">Mute</button>
-              <button id="pauseButton" class="rpg-button btn-danger">Pause</button>
-              <button id="saveButton" class="rpg-button btn-success">Save</button>
-              <button id="loadButton" class="rpg-button btn-primary">Load</button>
-              <button id="skipDialogueButton" class="rpg-button btn-warning">Skip</button>
+              <button id="muteButton" class="engine-button">Mute</button>
+              <button id="pauseButton" class="engine-button btn-danger">Pause</button>
+              <button id="saveButton" class="engine-button btn-success">Save</button>
+              <button id="loadButton" class="engine-button btn-primary">Load</button>
+              <button id="skipDialogueButton" class="engine-button btn-warning">Skip</button>
             </div>
           </div>
 
           <!-- Bottom Center: Instructions -->
-          <div class="hud-element" style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); font-size: 0.9em; color: #aaa; pointer-events: none;">
+          <div class="instructions-text">
             L-Click: Interact | R-Click: Move
           </div>
 
           <!-- Bottom Right: Inventory Bag -->
-          <button id="inventoryButton" class="rpg-button bag-button">🎒</button>
+          <button id="inventoryButton" class="engine-button bag-button">🎒</button>
 
           <!-- Bottom Left: Dev Tools -->
           <div class="dev-tools-wrapper">
-            <div id="devToolsPanel" class="rpg-panel dev-tools-panel">
+            <div id="devToolsPanel" class="engine-panel dev-tools-panel">
               <div id="fpsCounter" class="fps-counter">FPS: 60</div>
               <div><strong>Player:</strong> <span id="playerCoords">0, 0</span></div>
               <div><strong>Mouse:</strong> <span id="mouseCoords">0, 0</span></div>
             </div>
-            <label class="hud-element" style="cursor: pointer; display: inline-flex; align-items: center; gap: 8px; width: fit-content; font-size: 0.9em;">
-              <input type="checkbox" id="devToolsCheckbox" style="cursor: pointer;"> Dev Tools
+            <label class="dev-tools-toggle">
+              <input type="checkbox" id="devToolsCheckbox"> Dev Tools
             </label>
           </div>
 
@@ -59,14 +59,14 @@
       </div>
 
       <!-- Dialogue Box -->
-      <div id="dialogueBox" class="rpg-panel dialogue-box">
+      <div id="dialogueBox" class="engine-panel dialogue-box">
         <p id="dialogueSpeaker" class="dialogue-speaker"></p>
         <p id="dialogueText" class="dialogue-text"></p>
         <div class="dialogue-prompt">▼ Click to continue ▼</div>
       </div>
 
       <!-- Inventory Panel -->
-      <div id="inventoryPanel" class="rpg-panel inventory-panel">
+      <div id="inventoryPanel" class="engine-panel inventory-panel">
         <h2 class="panel-title">Inventory</h2>
         <ul id="inventoryList" class="inventory-list">
           <!-- Inventory items populated by engine -->

@@ -263,8 +263,117 @@ export class Renderer {
     }
   }
 
-  drawFOV(visibleCells: Set<string>, mapWidth: number, mapHeight: number): void {
+  /**
+   * Draw FOV visualization with intensity based on distance
+   * Useful for debugging and showing light radius
+   */
+  drawFOV(visibleCells: Set<string>, mapWidth: number, mapHeight: number, fov?: any): void {
     this.fovGraphics.clear();
+
+    if (!fov) return;
+
+    const cameraPos = this.camera.getPosition();
+
+    for (const cellKey of visibleCells) {
+      const [x, y] = cellKey.split(',').map(Number);
+
+      // Only render cells in view
+      if (x < cameraPos.x || x >= cameraPos.x + this.camera.width / this.tileSize ||
+          y < cameraPos.y || y >= cameraPos.y + this.camera.height / this.tileSize) {
+        continue;
+      }
+
+      const screenX = (x - cameraPos.x) * this.tileSize;
+      const screenY = (y - cameraPos.y) * this.tileSize;
+
+      // Get visibility data
+      const visibility = fov.getCellVisibility(x, y);
+      if (visibility) {
+        // Draw with intensity-based alpha
+        const alpha = visibility.intensity * 0.4; // 40% max overlay opacity
+        const color = visibility.isBlocked ? 0x333333 : 0x0066FF; // Gray for shadows, blue for visible
+        this.fovGraphics.rect(screenX, screenY, this.tileSize, this.tileSize).fill({ color, alpha });
+      }
+    }
+  }
+
+  /**
+   * Draw multiple light sources with their effective radius and intensity
+   */
+  drawLightSources(lights: Array<{ position: any; radius: number; intensity?: number; color?: any }>): void {
+    for (const light of lights) {
+      const cameraPos = this.camera.getPosition();
+      const screenX = (light.position.x - cameraPos.x) * this.tileSize + this.tileSize / 2;
+      const screenY = (light.position.y - cameraPos.y) * this.tileSize + this.tileSize / 2;
+
+      const intensity = light.intensity ?? 1.0;
+      const color = light.color ? (light.color.r << 16) | (light.color.g << 8) | light.color.b : 0xFFFF00;
+
+      // Draw light radius circle
+      const radiusPixels = light.radius * this.tileSize;
+      this.fovGraphics
+        .circle(screenX, screenY, radiusPixels)
+        .stroke({ color, width: 2, alpha: intensity * 0.6 });
+
+      // Draw light source core
+      this.fovGraphics.circle(screenX, screenY, 4).fill({ color, alpha: intensity });
+    }
+  }
+
+  /**
+   * Draw combined multiple light FOV with intensity blending
+   */
+  drawMultipleLightFOV(visibility: Map<string, any>): void {
+    this.fovGraphics.clear();
+    const cameraPos = this.camera.getPosition();
+
+    for (const [cellKey, vis] of visibility) {
+      const [x, y] = cellKey.split(',').map(Number);
+
+      // Only render cells in view
+      if (x < cameraPos.x || x >= cameraPos.x + this.camera.width / this.tileSize ||
+          y < cameraPos.y || y >= cameraPos.y + this.camera.height / this.tileSize) {
+        continue;
+      }
+
+      const screenX = (x - cameraPos.x) * this.tileSize;
+      const screenY = (y - cameraPos.y) * this.tileSize;
+
+      // Color based on intensity: dark blue -> bright yellow/white
+      const intensity = Math.min(1, vis.intensity);
+      const color = this.intensityToColor(intensity);
+      const alpha = intensity * 0.5;
+
+      this.fovGraphics.rect(screenX, screenY, this.tileSize, this.tileSize).fill({ color, alpha });
+    }
+  }
+
+  /**
+   * Convert intensity (0.0 - 1.0) to color gradient (blue -> yellow -> white)
+   */
+  private intensityToColor(intensity: number): number {
+    if (intensity < 0.3) {
+      // Dark blue to light blue
+      const t = intensity / 0.3;
+      const r = Math.floor(0 + (66 - 0) * t);
+      const g = Math.floor(0 + (150 - 0) * t);
+      const b = Math.floor(255);
+      return (r << 16) | (g << 8) | b;
+    } else if (intensity < 0.7) {
+      // Light blue to yellow
+      const t = (intensity - 0.3) / 0.4;
+      const r = Math.floor(66 + (255 - 66) * t);
+      const g = Math.floor(150 + (255 - 150) * t);
+      const b = Math.floor(255 - 255 * t);
+      return (r << 16) | (g << 8) | b;
+    } else {
+      // Yellow to white
+      const t = (intensity - 0.7) / 0.3;
+      const r = 255;
+      const g = 255;
+      const b = Math.floor(0 + (255 - 0) * t);
+      return (r << 16) | (g << 8) | b;
+    }
   }
 
   drawMarker(x: number, y: number, color: number = 0xff0000, size: number = 8): void {
