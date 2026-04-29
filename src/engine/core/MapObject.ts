@@ -28,6 +28,8 @@ export class MapObject {
   sprite: string;
   isActive: boolean = true;
   pixiSprite: PIXI.Sprite | null = null; // New: Holds the actual PixiJS sprite instance
+  radius: number = 0; // For light sources or other radius-based effects
+
   constructor(
     id: string,
     type: MapObjectType,
@@ -78,6 +80,7 @@ export class MapObject {
       position: { x: this.position.x, y: this.position.y },
       state: this.state,
       sprite: this.sprite,
+      radius: this.radius,
       properties: Object.fromEntries(this.properties),
     };
   }
@@ -182,6 +185,9 @@ export class Enemy extends NPC {
 export class InteractiveObject extends MapObject {
   isInteractable: boolean = true;
   interactionText: string = 'Interact';
+  isLevelExit: boolean = false; // New: Determines if this door transitions to next level
+  teleportTargetX?: number; // New: X coordinate for teleportation within the same map
+  teleportTargetY?: number; // New: Y coordinate for teleportation within the same map
 
   constructor(
     id: string,

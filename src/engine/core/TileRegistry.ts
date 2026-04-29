@@ -12,6 +12,21 @@ export interface TileDefinition {
   color: number; // Fallback color if sprite unavailable
 }
 
+export enum TileType {
+  GRASS = 0,
+  CAVE_WALL = 1,
+  WATER = 2,
+  SAND = 3,
+  PATH = 4,
+  STONE_FLOOR = 5,
+  DEEP_WATER = 6,
+  SNOW = 7,
+  CAVE_FLOOR = 8,
+  WOOD_FLOOR = 9,
+  SWAMP = 10,
+  FOREST = 11,
+}
+
 export class TileRegistry {
   private static tiles: Map<number, TileDefinition> = new Map();
 
@@ -19,7 +34,7 @@ export class TileRegistry {
    * Initialize default tile definitions mapping integers to textures
    */
   static initialize(): void {
-    this.registerTile(0, {
+    this.registerTile(TileType.GRASS, {
       cost: 1,
       walkable: true,
       sprite: 'grass',
@@ -27,7 +42,7 @@ export class TileRegistry {
       color: 0x4a7c2c,
     });
 
-    this.registerTile(1, {
+    this.registerTile(TileType.CAVE_WALL, {
       cost: 0,
       walkable: false,
       sprite: 'cave_wall',
@@ -35,7 +50,7 @@ export class TileRegistry {
       color: 0x1a1a1a,
     });
 
-    this.registerTile(2, {
+    this.registerTile(TileType.WATER, {
       cost: 0,
       walkable: false,
       sprite: 'water',
@@ -43,7 +58,7 @@ export class TileRegistry {
       color: 0x2980b9,
     });
 
-    this.registerTile(3, {
+    this.registerTile(TileType.SAND, {
       cost: 1.5,
       walkable: true,
       sprite: 'sand',
@@ -51,7 +66,7 @@ export class TileRegistry {
       color: 0xe8d4a8,
     });
 
-    this.registerTile(4, {
+    this.registerTile(TileType.PATH, {
       cost: 0.5,
       walkable: true,
       sprite: 'path',
@@ -59,7 +74,7 @@ export class TileRegistry {
       color: 0xc4a747,
     });
 
-    this.registerTile(5, {
+    this.registerTile(TileType.STONE_FLOOR, {
       cost: 1,
       walkable: true,
       sprite: 'stone_floor',
@@ -67,7 +82,7 @@ export class TileRegistry {
       color: 0x696969,
     });
 
-    this.registerTile(6, {
+    this.registerTile(TileType.DEEP_WATER, {
       cost: 0,
       walkable: false,
       sprite: 'deep_water',
@@ -75,7 +90,7 @@ export class TileRegistry {
       color: 0x1d4a7d,
     });
 
-    this.registerTile(7, {
+    this.registerTile(TileType.SNOW, {
       cost: 1.5,
       walkable: true,
       sprite: 'snow',
@@ -83,7 +98,7 @@ export class TileRegistry {
       color: 0xffffff,
     });
 
-    this.registerTile(8, {
+    this.registerTile(TileType.CAVE_FLOOR, {
       cost: 1.2,
       walkable: true,
       sprite: 'cave_floor',
@@ -91,7 +106,7 @@ export class TileRegistry {
       color: 0x4d4d4d,
     });
 
-    this.registerTile(9, {
+    this.registerTile(TileType.WOOD_FLOOR, {
       cost: 1,
       walkable: true,
       sprite: 'wood_floor',
@@ -99,7 +114,7 @@ export class TileRegistry {
       color: 0x8b4513,
     });
 
-    this.registerTile(10, {
+    this.registerTile(TileType.SWAMP, {
       cost: 3,
       walkable: true,
       sprite: 'swamp',
@@ -107,7 +122,7 @@ export class TileRegistry {
       color: 0x6b4423,
     });
 
-    this.registerTile(11, {
+    this.registerTile(TileType.FOREST, {
       cost: 0,
       walkable: false,
       sprite: 'forest',

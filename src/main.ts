@@ -32,16 +32,9 @@ async function initializeGame() {
       }
     }, 100);
 
-    // Update UI with mouse position
-    const mouseHandler = engine.getMouseHandler();
-    if (mouseHandler) {
-      mouseHandler.on('move' as any, (pos) => {
-        const mouseCoordsElement = document.getElementById('mouseCoords');
-        if (mouseCoordsElement) {
-          mouseCoordsElement.textContent = `${pos.x}, ${pos.y}`;
-        }
-      });
-    }
+    // The mouse coordinate display is now handled by the Renderer directly.
+    // The mouseHandler in GameEngine will call the Renderer's updateMouseHUD method.
+
   } catch (error) {
     console.error('Failed to initialize game:', error);
     return;

@@ -4,6 +4,7 @@ import { GameMap, MapLoader } from './map/MapLayer';
 import { AStarPathfinder } from './algorithms/AStar';
 import { FieldOfView } from './algorithms/FieldOfView';
 import { FogOfWar } from './algorithms/FogOfWar';
+import { FloodFill } from './algorithms/FloodFill';
 import { NPCAISystem } from './algorithms/NPCAISystem';
 import { NPC, Enemy, MapObject, MapObjectType, InteractiveObject } from './core/MapObject';
 import { TileRegistry } from './core/TileRegistry';
@@ -36,6 +37,7 @@ export class GameEngine {
   private pathfinder: AStarPathfinder;
   private fov: FieldOfView;
   private fogOfWar!: FogOfWar;
+  private floodFill: FloodFill;
   private aiSystem: NPCAISystem;
   private animationLibrary: AnimationLibrary;
   private particleSystem: ParticleSystem;
@@ -45,7 +47,7 @@ export class GameEngine {
 
   private currentPlayerPos: Vector = new Vector(10, 10);
   private lastFovPos: Vector = new Vector(-1, -1);
-    private cachedVisibleCells: Set<string> = new Set();
+  private cachedVisibleCells: Set<string> = new Set();
   private selectedCell: Vector | null = null;
   private path: Vector[] = [];
 
@@ -81,6 +83,7 @@ export class GameEngine {
     this.inventory = new Inventory();
     this.pathfinder = new AStarPathfinder(this.grid);
     this.fov = new FieldOfView(this.grid);
+    this.floodFill = new FloodFill(this.grid);
     this.aiSystem = new NPCAISystem(this.grid);
     this.animationLibrary = new AnimationLibrary();
     this.particleSystem = new ParticleSystem();
@@ -112,6 +115,7 @@ export class GameEngine {
         { id: 'mana_potion', path: '/assets/mana_potion.png' },
         { id: 'goblin', path: '/assets/goblin.png' },
         { id: 'key', path: '/assets/key.png' },
+        { id: 'torch', path: '/assets/torch.png' },
         { id: 'grass', path: '/assets/textures/grass.png' },
         { id: 'swamp', path: '/assets/textures/mud.png' },
         { id: 'path', path: '/assets/textures/path.png' },
@@ -147,7 +151,7 @@ export class GameEngine {
     }
 
     try {
-      await this.loadMap('/maps/test-map.json');
+      await this.loadMap('/maps/dungeon_adventure.json');
       console.log('Map loaded successfully.');
     } catch (error) {
       console.error('Failed to load map:', error);
@@ -164,7 +168,7 @@ export class GameEngine {
   }
 
   private setupLevelMap(): void {
-    this.levelMap.set(1, { mapUrl: '/maps/test-map.json', spawnPoint: new Vector(10, 10) });
+    this.levelMap.set(1, { mapUrl: '/maps/dungeon_adventure.json', spawnPoint: new Vector(2, 2) });
     this.levelMap.set(2, { mapUrl: '/maps/level2.json', spawnPoint: new Vector(18, 18) });
   }
 
@@ -282,9 +286,16 @@ export class GameEngine {
       } else if (type === "DOOR") {
           const door = new InteractiveObject(data.id || `door_${x}_${y}`, MapObjectType.DOOR, new Vector(x, y), data.sprite || 'gate');
           door.setProperty('isOpen', false);
+          door.isLevelExit = !!data.isLevelExit; // Correctly set level exit
+          door.teleportTargetX = data.teleportTargetX; // Read teleport target X
+          door.teleportTargetY = data.teleportTargetY; // Read teleport target Y
           if (data.keyId) door.setProperty('keyId', data.keyId);
           if (data.requiredEnemyId) door.setProperty('requiredEnemyId', data.requiredEnemyId);
           this.addMapObject(door);
+      } else if (type === "LIGHT" || type === "LIGHT_SOURCE") {
+        const light = new MapObject(data.id || `light_${x}_${y}`, MapObjectType.LIGHT_SOURCE, new Vector(x, y), data.sprite || 'torch');
+        light.radius = data.radius || 5;
+        this.addMapObject(light);
       }
   }
 
@@ -389,7 +400,9 @@ export class GameEngine {
     this.render();
   }
 
-  private onMouseMove(_pos: Vector): void {}
+  private onMouseMove(pos: Vector): void {
+      this.renderer.updateMouseHUD(pos.x, pos.y);
+  }
 
   private updateObjectSpriteTexture(object: MapObject): void {
     if (object.pixiSprite && object.sprite) {
@@ -515,11 +528,34 @@ export class GameEngine {
             gate.sprite = 'gate_open';
             this.updateObjectSpriteTexture(gate);
             this.grid.setCellType(gate.position.x, gate.position.y, CellType.GRASS);
-            this.uiManager.startDialogue([{ speaker: 'System', text: `You opened the gate!` }]).then(() => this.advanceToNextLevel());
+
+            // Apply flood-fill visibility when room door is opened
+            const roomCells = this.floodFill.fillRoom(new Vector(gate.position.x, gate.position.y));
+            this.fogOfWar.markMultipleExplored(roomCells);
+
+            if (gate.isLevelExit) {
+              this.uiManager.startDialogue([{ speaker: 'System', text: `You opened the master gate!` }]).then(() => this.advanceToNextLevel());
+            } else if (gate.teleportTargetX !== undefined && gate.teleportTargetY !== undefined) {
+                this.currentPlayerPos.x = gate.teleportTargetX;
+                this.currentPlayerPos.y = gate.teleportTargetY;
+                this.targetPlayerPos = this.currentPlayerPos.clone();
+                this.uiManager.startDialogue([{ speaker: 'System', text: `You stepped through the gate!` }]);
+            } else {
+              this.uiManager.startDialogue([{ speaker: 'System', text: `You opened the gate!` }]);
+            }
             this.render();
           }
         } else {
-          this.uiManager.startDialogue([{ speaker: 'System', text: 'You step through the open gate...' }]).then(() => this.advanceToNextLevel());
+          if (gate.isLevelExit) {
+            this.uiManager.startDialogue([{ speaker: 'System', text: 'You step through the open master gate...' }]).then(() => this.advanceToNextLevel());
+          } else if (gate.teleportTargetX !== undefined && gate.teleportTargetY !== undefined) {
+              this.currentPlayerPos.x = gate.teleportTargetX;
+              this.currentPlayerPos.y = gate.teleportTargetY;
+              this.targetPlayerPos = this.currentPlayerPos.clone();
+              this.uiManager.startDialogue([{ speaker: 'System', text: `You stepped through the gate!` }]);
+          } else {
+            this.uiManager.startDialogue([{ speaker: 'System', text: 'You step through the open gate...' }]);
+          }
         }
       } else if (objectToInteract.type === MapObjectType.CHEST) {
         const chest = objectToInteract as InteractiveObject;
@@ -547,14 +583,34 @@ export class GameEngine {
     this.renderer.getCamera().centerOn(this.targetPlayerPos);
     this.renderer.applyCameraTransform();
     this.renderer.renderMap(this.map);
+
     if (!this.currentPlayerPos.equals(this.lastFovPos)) {
-          this.cachedVisibleCells = this.fov.calculateFOV(this.currentPlayerPos, 10);
-          this.fogOfWar.updateFromFOV(this.cachedVisibleCells);
-          this.renderer.renderFogOfWar(this.fogOfWar, this.map.getWidth(), this.map.getHeight());
-          this.renderer.drawFOV(this.cachedVisibleCells, this.map.getWidth(), this.map.getHeight());
-          this.lastFovPos = this.currentPlayerPos.clone();
+      const lightSources: { pos: Vector, radius: number }[] = [];
+      // Always add player as a light source
+      lightSources.push({ pos: this.currentPlayerPos, radius: 10 });
+
+      // Add all active light source objects
+      for (const obj of this.mapObjects.values()) {
+        if (obj.type === MapObjectType.LIGHT_SOURCE && obj.isActive) {
+          lightSources.push({ pos: obj.position, radius: obj.radius });
         }
-        const visibleCells = this.cachedVisibleCells;
+      }
+
+      // Calculate combined FOV from all sources
+      const combinedFOV = new Set<string>();
+      for (const source of lightSources) {
+        const sourceFOV = this.fov.calculateFOV(source.pos, source.radius);
+        sourceFOV.forEach(cell => combinedFOV.add(cell));
+      }
+
+      this.cachedVisibleCells = combinedFOV;
+      this.fogOfWar.updateFromFOV(this.cachedVisibleCells);
+      this.renderer.renderFogOfWar(this.fogOfWar, this.map.getWidth(), this.map.getHeight());
+      this.renderer.drawFOV(this.cachedVisibleCells, this.map.getWidth(), this.map.getHeight());
+      this.lastFovPos = this.currentPlayerPos.clone();
+    }
+
+    const visibleCells = this.cachedVisibleCells;
     const cameraPos = this.renderer.getCamera().getPosition();
     const cameraWidth = this.renderer.getCamera().width / this.renderer.tileSize;
     const cameraHeight = this.renderer.getCamera().height / this.renderer.tileSize;

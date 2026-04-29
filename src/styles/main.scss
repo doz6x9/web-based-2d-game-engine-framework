@@ -1,4 +1,288 @@
-/*
-All UI and canvas styles have been migrated to the <style> block in index.html
-to support the centralized Retro RPG theme using CSS variables.
-*/
+/* 2D Web-Based Game Engine - Main Styles */
+
+// Retro RPG Variables
+$bg-color: #111111;
+$panel-bg: rgba(25, 15, 10, 0.9);
+$panel-border: #d4af37;
+$text-main: #f4ebd8;
+$text-highlight: #ffcc00;
+$health-red: #ff3b30;
+
+$btn-bg: #3e2723;
+$btn-border: #8d6e63;
+$btn-hover: #5d4037;
+
+$font-retro: 'VT323', monospace;
+$font-fantasy: 'Cinzel', serif;
+
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=Cinzel:wght@700&display=swap');
+
+body {
+  margin: 0;
+  background-color: $bg-color;
+  color: $text-main;
+  font-family: $font-retro;
+  font-size: 24px;
+  overflow: hidden;
+  user-select: none;
+}
+
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid $text-highlight;
+  outline-offset: 2px;
+}
+
+.game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+
+  canvas {
+    image-rendering: pixelated;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    background-color: #1a1a1a;
+  }
+}
+
+.rpg-panel {
+  background-color: $panel-bg;
+  border: 4px double $panel-border;
+  border-radius: 8px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8), 0 5px 15px rgba(0, 0, 0, 0.5);
+  padding: 15px;
+  box-sizing: border-box;
+
+  .panel-title {
+    font-family: $font-fantasy;
+    color: $text-highlight;
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 2px solid $panel-border;
+    padding-bottom: 5px;
+    letter-spacing: 2px;
+  }
+}
+
+.hud-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 100;
+  padding: 15px;
+
+  .hud-element {
+    background-color: $panel-bg;
+    border: 2px solid $panel-border;
+    padding: 8px 16px;
+    border-radius: 4px;
+    pointer-events: auto;
+  }
+
+  .level-display {
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: $font-fantasy;
+    color: $text-highlight;
+    font-size: 1.2em;
+    letter-spacing: 2px;
+  }
+
+  .menu-container {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    pointer-events: auto;
+
+    .hud-buttons {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      background-color: $panel-bg;
+      border: 2px solid $panel-border;
+      padding: 10px;
+      border-radius: 8px;
+
+      &.open {
+        display: flex;
+      }
+    }
+  }
+
+  .dev-tools-wrapper {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .dev-tools-panel {
+      display: none;
+      font-size: 1.1em;
+      min-width: 200px;
+
+      &.open {
+        display: block;
+      }
+
+      .fps-counter {
+        color: #00ff00;
+        margin-bottom: 5px;
+      }
+    }
+  }
+}
+
+.rpg-button {
+  font-family: $font-retro;
+  font-size: 1.1em;
+  padding: 8px 16px;
+  background-color: $btn-bg;
+  color: $text-main;
+  border: 2px solid $btn-border;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.1s ease;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.5);
+
+  &:hover {
+    background-color: $btn-hover;
+    border-color: $panel-border;
+    color: #fff;
+  }
+
+  &:active {
+    transform: translateY(4px);
+    box-shadow: none;
+  }
+
+  &.bag-button {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    font-size: 2em;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+    padding: 0;
+    text-shadow: 2px 2px 0px #000;
+  }
+}
+
+.dialogue-box {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 800px;
+  display: none;
+  z-index: 1000;
+  pointer-events: auto;
+  cursor: pointer;
+
+  .dialogue-speaker {
+    font-family: $font-fantasy;
+    font-size: 1.4em;
+    color: $text-highlight;
+    margin: 0 0 10px 0;
+    letter-spacing: 1px;
+  }
+
+  .dialogue-text {
+    font-size: 1.3em;
+    line-height: 1.4;
+    margin: 0 0 15px 0;
+  }
+
+  .dialogue-prompt {
+    text-align: right;
+    font-size: 1em;
+    color: #888;
+    animation: pulse 1s infinite alternate;
+  }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.inventory-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50%;
+  max-width: 500px;
+  height: 70%;
+  max-height: 600px;
+  display: none;
+  z-index: 1001;
+  pointer-events: auto;
+  overflow-y: auto;
+
+  .inventory-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+
+    .inventory-item {
+      padding: 10px;
+      border-bottom: 1px solid #555;
+      cursor: pointer;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+    }
+  }
+
+  .close-prompt {
+    text-align: center;
+    font-size: 1em;
+    color: #888;
+    margin-top: 20px;
+    border-top: 1px dashed #555;
+    padding-top: 10px;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: $bg-color;
+  border-left: 1px solid $panel-border;
+}
+::-webkit-scrollbar-thumb {
+  background: $btn-border;
+
+  &:hover {
+    background: $panel-border;
+  }
+}

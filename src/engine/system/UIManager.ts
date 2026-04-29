@@ -18,9 +18,12 @@ export class UIManager {
   private saveButton: HTMLElement | null;
   private loadButton: HTMLElement | null;
   private skipDialogueButton: HTMLElement | null;
-  private muteButton: HTMLElement | null; // ADDED: Mute button reference
+  private muteButton: HTMLElement | null;
 
-  // FIXED: Renamed to _isInventoryOpen to avoid colliding with the method name
+  // Dev Tools elements
+  private playerCoordsElement: HTMLElement | null;
+  private mouseCoordsElement: HTMLElement | null;
+
   private _isInventoryOpen: boolean = false;
 
   // Callback functions for HUD buttons
@@ -28,7 +31,7 @@ export class UIManager {
   private onSaveCallback: (() => void) | null = null;
   private onLoadCallback: (() => void) | null = null;
   private onSkipDialogueCallback: (() => void) | null = null;
-  private onMuteCallback: (() => void) | null = null; // ADDED: Mute callback
+  private onMuteCallback: (() => void) | null = null;
 
   // FPS tracking
   private frameCount: number = 0;
@@ -51,13 +54,16 @@ export class UIManager {
     this.saveButton = document.getElementById('saveButton');
     this.loadButton = document.getElementById('loadButton');
     this.skipDialogueButton = document.getElementById('skipDialogueButton');
-    this.muteButton = document.getElementById('muteButton'); // ADDED: Hook up the HTML element
+    this.muteButton = document.getElementById('muteButton');
+
+    // Initialize Dev Tools elements
+    this.playerCoordsElement = document.getElementById('playerCoords');
+    this.mouseCoordsElement = document.getElementById('mouseCoords');
 
     this.setupEventHandlers();
   }
 
   private setupEventHandlers(): void {
-    // Inventory button
     if (this.inventoryButton) {
       this.inventoryButton.addEventListener('click', () => {
         if (this.isDialogueActive()) return;
@@ -65,7 +71,6 @@ export class UIManager {
       });
     }
 
-    // HUD Buttons
     if (this.pauseButton) {
       this.pauseButton.addEventListener('click', () => {
         if (this.onPauseCallback) this.onPauseCallback();
@@ -87,12 +92,10 @@ export class UIManager {
     if (this.skipDialogueButton) {
       this.skipDialogueButton.addEventListener('click', () => {
         if (this.onSkipDialogueCallback) this.onSkipDialogueCallback();
-        // Also try to skip dialogue via the dialogue manager
         this.dialogueManager.skip();
       });
     }
 
-    // ADDED: Mute button click handler
     if (this.muteButton) {
       this.muteButton.addEventListener('click', () => {
         if (this.onMuteCallback) this.onMuteCallback();
@@ -100,7 +103,6 @@ export class UIManager {
     }
   }
 
-  // --- Dialogue Management ---
   startDialogue(dialogue: DialogueLine[]): Promise<unknown> {
     return this.dialogueManager.startDialogue(dialogue);
   }
@@ -109,24 +111,19 @@ export class UIManager {
     return this.dialogueManager.isDialogueActive();
   }
 
-  // --- Inventory Management ---
   toggleInventory(): void {
     if (this.inventoryPanel) {
-      this._isInventoryOpen = !this._isInventoryOpen; // FIXED: Using new variable name
+      this._isInventoryOpen = !this._isInventoryOpen;
       this.inventoryPanel.style.display = this._isInventoryOpen ? 'block' : 'none';
       if (this._isInventoryOpen) {
-        this.updateInventoryDisplay(this.inventory); // Update display when opening
-        console.log('Inventory opened.');
-      } else {
-        console.log('Inventory closed.');
+        this.updateInventoryDisplay(this.inventory);
       }
     }
   }
 
   updateInventoryDisplay(inventory: Inventory): void {
     if (this.inventoryList) {
-      this.inventoryList.innerHTML = ''; // Clear current list
-
+      this.inventoryList.innerHTML = '';
       const items = inventory.getAllItems();
       if (items.length === 0) {
         const li = document.createElement('li');
@@ -147,28 +144,20 @@ export class UIManager {
   }
 
   isInventoryOpen(): boolean {
-    return this._isInventoryOpen; // FIXED: Using new variable name
+    return this._isInventoryOpen;
   }
 
-  /**
-   * Update the player's health display.
-   */
   updatePlayerHealth(currentHealth: number, maxHealth: number): void {
     if (this.playerHealthElement) {
       this.playerHealthElement.textContent = `${currentHealth}/${maxHealth}`;
     }
   }
 
-  /**
-   * Update FPS counter display
-   * Call this every frame from the game loop
-   */
   updateFpsCounter(deltaTime: number): void {
     this.frameCount++;
     const currentTime = Date.now();
     const elapsed = currentTime - this.lastFpsUpdateTime;
-
-    if (elapsed >= 1000) { // Update FPS every second
+    if (elapsed >= 1000) {
       this.currentFps = Math.round((this.frameCount * 1000) / elapsed);
       if (this.fpsCounter) {
         this.fpsCounter.textContent = `FPS: ${this.currentFps}`;
@@ -178,53 +167,44 @@ export class UIManager {
     }
   }
 
-  /**
-   * Update level display
-   */
   updateLevelDisplay(levelNumber: number, levelName: string): void {
     if (this.levelDisplay) {
       this.levelDisplay.textContent = `Level ${levelNumber}: ${levelName}`;
     }
   }
 
-  /**
-   * Register pause button callback
-   */
+  updatePlayerCoords(x: number, y: number): void {
+      if (this.playerCoordsElement) {
+          this.playerCoordsElement.textContent = `${x}, ${y}`;
+      }
+  }
+
+  updateMouseCoords(x: number, y: number): void {
+      if (this.mouseCoordsElement) {
+          this.mouseCoordsElement.textContent = `${x}, ${y}`;
+      }
+  }
+
   onPause(callback: () => void): void {
     this.onPauseCallback = callback;
   }
 
-  /**
-   * Register save button callback
-   */
   onSave(callback: () => void): void {
     this.onSaveCallback = callback;
   }
 
-  /**
-   * Register load button callback
-   */
   onLoad(callback: () => void): void {
     this.onLoadCallback = callback;
   }
 
-  /**
-   * Register skip dialogue button callback
-   */
   onSkipDialogue(callback: () => void): void {
     this.onSkipDialogueCallback = callback;
   }
 
-  /**
-   * Register mute button callback
-   */
   onMute(callback: () => void): void {
     this.onMuteCallback = callback;
   }
 
-  /**
-   * Update pause button state
-   */
   setPauseButtonState(isPaused: boolean): void {
     if (this.pauseButton) {
       this.pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
@@ -232,9 +212,6 @@ export class UIManager {
     }
   }
 
-  /**
-   * Update mute button visually
-   */
   setMuteButtonState(isMuted: boolean): void {
     if (this.muteButton) {
       this.muteButton.textContent = isMuted ? 'Unmute' : 'Mute';
@@ -242,16 +219,12 @@ export class UIManager {
     }
   }
 
-  // --- General UI State ---
   isUIOpen(): boolean {
-    return this.isDialogueActive() || this.isInventoryOpen(); // FIXED: added () to call the method
+    return this.isDialogueActive() || this.isInventoryOpen();
   }
 
-  /**
-   * Clean up event listeners.
-   */
   destroy(): void {
-    this.dialogueManager.destroy(); // Clean up dialogue manager listeners
+    this.dialogueManager.destroy();
     if (this.inventoryButton) {
       this.inventoryButton.removeEventListener('click', this.toggleInventory.bind(this));
     }
