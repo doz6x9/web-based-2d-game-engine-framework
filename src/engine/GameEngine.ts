@@ -402,6 +402,7 @@ export class GameEngine {
 
   private onMouseMove(pos: Vector): void {
       this.renderer.updateMouseHUD(pos.x, pos.y);
+      this.uiManager.updateMouseCoords(pos.x, pos.y); // Update the HTML element in Dev Tools
   }
 
   private updateObjectSpriteTexture(object: MapObject): void {
@@ -688,6 +689,7 @@ export class GameEngine {
     }
     this.aiSystem.update(this.currentPlayerPos);
     this.particleSystem.update(deltaTime);
+    this.uiManager.updatePlayerCoords(Math.round(this.currentPlayerPos.x), Math.round(this.currentPlayerPos.y)); // Update player coords in Dev Tools
     this.render();
   }
 

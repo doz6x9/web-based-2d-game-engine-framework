@@ -97,7 +97,7 @@ export class Renderer {
   private markerGraphics!: PIXI.Graphics;
 
   // HUD elements
-  private mouseCoordsText!: PIXI.Text;
+  // private mouseCoordsText!: PIXI.Text; // Removed
 
   private fallbackTexture!: PIXI.Texture;
 
@@ -140,21 +140,6 @@ export class Renderer {
     this.worldContainer.addChild(this.fovContainer);
     this.worldContainer.addChild(this.markerContainer);
 
-    // Add HUD elements
-    this.mouseCoordsText = new PIXI.Text({
-        text: 'Mouse: 0, 0',
-        style: {
-            fontFamily: 'Arial',
-            fontSize: 14,
-            fill: 0xffffff,
-            align: 'left',
-            stroke: { color: 0x000000, width: 2 }
-        }
-    });
-    this.mouseCoordsText.x = 10;
-    this.mouseCoordsText.y = height - 30;
-    this.hudContainer.addChild(this.mouseCoordsText);
-
     // Add containers to stage
     this.stage.addChild(this.worldContainer);
     this.stage.addChild(this.hudContainer);
@@ -169,9 +154,7 @@ export class Renderer {
    * Update the mouse coordinates display on the HUD
    */
   public updateMouseHUD(x: number, y: number): void {
-      if (this.mouseCoordsText) {
-          this.mouseCoordsText.text = `Mouse: ${x}, ${y}`;
-      }
+      // This method is now empty as mouseCoordsText is removed
   }
 
   /**
@@ -368,8 +351,5 @@ export class Renderer {
   resize(width: number, height: number): void {
     this.app.renderer.resize(width, height);
     this.camera = new Camera(width, height, this.camera.mapWidth, this.camera.mapHeight, this.tileSize);
-    if (this.mouseCoordsText) {
-        this.mouseCoordsText.y = height - 30;
-    }
   }
 }
