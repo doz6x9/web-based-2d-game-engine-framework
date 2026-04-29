@@ -32,7 +32,8 @@ export class Camera {
   }
 
   /**
-   * Center camera on a target
+   * Center camera on a target grid coordinate.
+   * Properly handles arbitrary grid coordinates for maps larger than canvas.
    */
   centerOn(target: Vector): void {
     let x = target.x - (this.width / this.tileSize) / 2;
@@ -46,7 +47,7 @@ export class Camera {
   }
 
   /**
-   * Get camera position
+   * Get camera position (top-left corner in grid coordinates)
    */
   getPosition(): Vector {
     return this.position;
@@ -76,28 +77,23 @@ export class Camera {
  */
 export class Renderer {
   private app: PIXI.Application;
-  private stage!: PIXI.Container; // Initialized in init()
-  private worldContainer!: PIXI.Container; // New: Container for all world elements
-  private hudContainer!: PIXI.Container;   // New: Container for HUD (static on screen)
-  public camera!: Camera; // Initialized in init()
+  private stage!: PIXI.Container;
+  private worldContainer!: PIXI.Container;
+  private hudContainer!: PIXI.Container;
+  public camera!: Camera;
   public tileSize: number;
   private layers: Map<string, PIXI.Container> = new Map();
   private textures: Map<string, PIXI.Texture> = new Map();
 
-  // Dedicated containers for dynamic elements (now children of worldContainer)
   private fogContainer!: PIXI.Container;
   private fovContainer!: PIXI.Container;
   private markerContainer!: PIXI.Container;
   private spriteContainer!: PIXI.Container;
   private particleContainer!: PIXI.Container;
 
-  // Reusable Graphics objects
   private fogGraphics!: PIXI.Graphics;
   private fovGraphics!: PIXI.Graphics;
   private markerGraphics!: PIXI.Graphics;
-
-  // HUD elements
-  // private mouseCoordsText!: PIXI.Text; // Removed
 
   private fallbackTexture!: PIXI.Texture;
 
@@ -115,7 +111,6 @@ export class Renderer {
     this.stage = this.app.stage;
     this.camera = new Camera(width, height, mapWidth, mapHeight, this.tileSize);
 
-    // Initialize containers
     this.worldContainer = new PIXI.Container();
     this.hudContainer = new PIXI.Container();
 
@@ -125,7 +120,6 @@ export class Renderer {
     this.spriteContainer = new PIXI.Container();
     this.particleContainer = new PIXI.Container();
 
-    // Graphics
     this.fogGraphics = new PIXI.Graphics();
     this.fogContainer.addChild(this.fogGraphics);
     this.fovGraphics = new PIXI.Graphics();
@@ -133,33 +127,25 @@ export class Renderer {
     this.markerGraphics = new PIXI.Graphics();
     this.markerContainer.addChild(this.markerGraphics);
 
-    // Add world elements to worldContainer
+    // Dynamic containers are added on top of map layers
     this.worldContainer.addChild(this.spriteContainer);
     this.worldContainer.addChild(this.particleContainer);
     this.worldContainer.addChild(this.fogContainer);
     this.worldContainer.addChild(this.fovContainer);
     this.worldContainer.addChild(this.markerContainer);
 
-    // Add containers to stage
     this.stage.addChild(this.worldContainer);
     this.stage.addChild(this.hudContainer);
 
-    // Generate fallback texture
     const graphics = new PIXI.Graphics();
     graphics.rect(0, 0, this.tileSize, this.tileSize).fill(0xFFFFFF);
     this.fallbackTexture = this.app.renderer.generateTexture(graphics);
   }
 
-  /**
-   * Update the mouse coordinates display on the HUD
-   */
   public updateMouseHUD(x: number, y: number): void {
-      // This method is now empty as mouseCoordsText is removed
+      // Intentionally left empty per decoupling rules
   }
 
-  /**
-   * Load assets
-   */
   async loadAssets(assets: { id: string; path: string }[]): Promise<void> {
     for (const asset of assets) {
       try {
@@ -177,116 +163,105 @@ export class Renderer {
   }
 
   clearMapCache(): void {
-      for (const layer of this.layers.values()) {
-          layer.destroy({ children: true });
-      }
-      this.layers.clear();
+    for (const layer of this.layers.values()) {
+        layer.destroy({ children: true });
     }
+    this.layers.clear();
+  }
 
+  /**
+   * Renders the map layers in strict bottom-up z-index order based on the JSON array.
+   */
   renderMap(map: GameMap): void {
-      if (this.layers.size === 0) {
-        // Clear worldContainer (except the dynamic ones we manage)
-        // Actually we should manage layers within worldContainer
-        let zIndex = 0;
-        for (let i = 0; i < map.getLayers().length; i++) {
-          const layer = map.getLayers()[i];
-          if (layer.getName() === 'collision') continue;
+    const layers = map.getLayers();
 
-          const layerContainer = new PIXI.Container();
-          this.worldContainer.addChildAt(layerContainer, zIndex++);
-          this.layers.set(`layer-${i}`, layerContainer);
-        }
-      }
-
-      const cameraPos = this.camera.getPosition();
-      const startX = Math.max(0, Math.floor(cameraPos.x));
-      const startY = Math.max(0, Math.floor(cameraPos.y));
-      const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
-      const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
-
-      const layers = map.getLayers();
+    // Initialize map layer containers in strict bottom-up order
+    if (this.layers.size === 0) {
+      let zIndex = 0;
       for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
         if (layer.getName() === 'collision') continue;
 
-        const container = this.layers.get(`layer-${i}`);
-        if (!container) continue;
-
-        const data = layer.getData();
-        let childIndex = 0;
-
-        for (let y = startY; y < endY; y++) {
-          for (let x = startX; x < endX; x++) {
-            const tileType = data[y][x];
-            if (tileType === 0 && layer.getName() === 'collision') continue;
-
-            const textureId = this.getTextureForTile(tileType, x, y, data);
-            let sprite: PIXI.Sprite;
-            if (childIndex < container.children.length) {
-              sprite = container.children[childIndex] as PIXI.Sprite;
-              sprite.visible = true;
-            } else {
-              sprite = new PIXI.Sprite();
-              container.addChild(sprite);
-            }
-
-            if (textureId && this.textures.has(textureId)) {
-              sprite.texture = this.textures.get(textureId)!;
-              sprite.tint = 0xFFFFFF;
-            } else {
-              const color = textureId ? 0xFF00FF : TileRegistry.getColor(tileType);
-              sprite.texture = this.fallbackTexture;
-              sprite.tint = color;
-            }
-
-            sprite.width = this.tileSize;
-            sprite.height = this.tileSize;
-            sprite.x = x * this.tileSize;
-            sprite.y = y * this.tileSize;
-
-            childIndex++;
-          }
-        }
-
-        for (let j = childIndex; j < container.children.length; j++) {
-          container.children[j].visible = false;
-        }
+        const layerContainer = new PIXI.Container();
+        // Insert at the specific zIndex (before dynamic containers)
+        this.worldContainer.addChildAt(layerContainer, zIndex++);
+        this.layers.set(`layer-${i}`, layerContainer);
       }
     }
 
-  private getTextureForTile(tileType: number, x: number, y: number, data: number[][]): string | null {
-    if (tileType === 1) {
-      const top = y > 0 ? data[y-1][x] === 1 : false;
-      const bottom = y < data.length - 1 ? data[y+1][x] === 1 : false;
-      const left = x > 0 ? data[y][x-1] === 1 : false;
-      const right = x < data[y].length - 1 ? data[y][x+1] === 1 : false;
+    const cameraPos = this.camera.getPosition();
+    const startX = Math.max(0, Math.floor(cameraPos.x));
+    const startY = Math.max(0, Math.floor(cameraPos.y));
+    const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
+    const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
 
-      if (right && bottom && !top && !left) return 'wall_corner_tl';
-      if (left && bottom && !top && !right) return 'wall_corner_tr';
-      if (right && top && !bottom && !left) return 'wall_corner_bl';
-      if (left && top && !bottom && !right) return 'wall_corner_br';
-      if (left && right && !top && !bottom) return 'wall_horizontal';
-      if (top && bottom && !left && !right) return 'wall_vertical';
-      if (left || right) return 'wall_horizontal';
-      if (top || bottom) return 'wall_vertical';
-      return 'cave_wall';
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      if (layer.getName() === 'collision') continue;
+
+      const container = this.layers.get(`layer-${i}`);
+      if (!container) continue;
+
+      const data = layer.getData();
+      let childIndex = 0;
+
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          const tileType = data[y][x];
+          // Skip empty tiles (0) unless specifically required by game logic
+          if (tileType === 0) continue;
+
+          // Purely rely on TileRegistry - no hardcoded "cave_wall" logic
+          const textureId = TileRegistry.getSprite(tileType);
+
+          let sprite: PIXI.Sprite;
+          if (childIndex < container.children.length) {
+            sprite = container.children[childIndex] as PIXI.Sprite;
+            sprite.visible = true;
+          } else {
+            sprite = new PIXI.Sprite();
+            container.addChild(sprite);
+          }
+
+          if (textureId && this.textures.has(textureId)) {
+            sprite.texture = this.textures.get(textureId)!;
+            sprite.tint = 0xFFFFFF;
+          } else {
+            // Fallback for missing textures/types
+            const color = TileRegistry.getColor(tileType);
+            sprite.texture = this.fallbackTexture;
+            sprite.tint = color;
+          }
+
+          sprite.width = this.tileSize;
+          sprite.height = this.tileSize;
+          sprite.x = x * this.tileSize;
+          sprite.y = y * this.tileSize;
+
+          childIndex++;
+        }
+      }
+
+      // Hide unused sprites from pool
+      for (let j = childIndex; j < container.children.length; j++) {
+        container.children[j].visible = false;
+      }
     }
-    return TileRegistry.getSprite(tileType);
   }
 
   renderFogOfWar(fogOfWar: FogOfWar, mapWidth: number, mapHeight: number): void {
-      this.fogGraphics.clear();
-      for (let y = 0; y < mapHeight; y++) {
-        for (let x = 0; x < mapWidth; x++) {
-          const fogState = fogOfWar.getFogState(x, y);
-          if (fogState === FogState.UNKNOWN) {
-            this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.8 });
-          } else if (fogState === FogState.EXPLORED) {
-            this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.5 });
-          }
+    this.fogGraphics.clear();
+    for (let y = 0; y < mapHeight; y++) {
+      for (let x = 0; x < mapWidth; x++) {
+        const fogState = fogOfWar.getFogState(x, y);
+        if (fogState === FogState.UNKNOWN) {
+          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.8 });
+        } else if (fogState === FogState.EXPLORED) {
+          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.5 });
         }
       }
     }
+  }
 
   drawFOV(visibleCells: Set<string>, mapWidth: number, mapHeight: number): void {
     this.fovGraphics.clear();

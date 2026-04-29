@@ -1,45 +1,20 @@
 import './styles/main.scss';
-import { GameEngine } from './engine/GameEngine';
+import { GameApp } from './game/GameApp';
 
 /**
- * Initialize the game
+ * Application initialization
  */
-async function initializeGame() {
-  // Get the canvas element
-  const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-  if (!canvas) {
-    console.error('Canvas element not found!');
-    return;
-  }
-
-  const gameWidth = 1280;
-  const gameHeight = 720;
-
-  // Create and initialize the game engine
-  const engine = new GameEngine();
-
+async function initializeGame(): Promise<void> {
+  const game = new GameApp();
   try {
-    // Initialize the engine (including renderer, mouse handler, UI manager, asset loading, map loading)
-    await engine.init(canvas, gameWidth, gameHeight);
-    console.log('GameEngine initialized successfully.');
-
-    // Update UI with player position
-    setInterval(() => {
-      const playerPos = engine.getPlayerPosition();
-      const coordsElement = document.getElementById('playerCoords');
-      if (coordsElement) {
-        coordsElement.textContent = `${playerPos.x}, ${playerPos.y}`;
-      }
-    }, 100);
-
-    // The mouse coordinate display is now handled by the Renderer directly.
-    // The mouseHandler in GameEngine will call the Renderer's updateMouseHUD method.
-
+    await game.start();
+    console.log('[APP] Game started successfully');
+    // Make game accessible from console for debugging
+    (window as any).game = game;
   } catch (error) {
-    console.error('Failed to initialize game:', error);
-    return;
+    console.error('[APP] Game initialization failed:', error);
   }
 }
 
 // Start the game when the page loads
-initializeGame();
+window.addEventListener('load', initializeGame);

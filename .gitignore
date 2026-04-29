@@ -25,8 +25,4 @@ dist-ssr
 *.sw?
 .github
 
-# Python Map Scripts and References
-generate_map.py
-AVAILABLE_TEXTURES.md
-TILES.md
-TILES_REFERENCE.md
+

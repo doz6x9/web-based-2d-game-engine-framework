@@ -1,34 +1,38 @@
 import { Vector } from './Vector';
-import * as PIXI from 'pixi.js'; // Import PIXI for the sprite type
+import * as PIXI from 'pixi.js';
 
 /**
- * Map object types
+ * Generic Map object types for the engine
+ * Removed game-specific types like ENEMY or TRAP
  */
 export enum MapObjectType {
-  PLAYER = 'player',
-  NPC = 'npc',
-  ENEMY = 'enemy',
-  DOOR = 'door',
-  CHEST = 'chest',
+  STATIC = 'static',
+  DYNAMIC = 'dynamic',
+  INTERACTIVE = 'interactive',
   LIGHT_SOURCE = 'light',
-  TRAP = 'trap',
-  TELEPORT = 'teleport',
-  ITEM = 'item', // Added MapObjectType.ITEM
+  TRIGGER = 'trigger',
 }
 
 /**
- * Base class for all map objects
+ * Generic Entity class for all map objects
+ * Developers can extend this class in their own game layer
  */
 export class MapObject {
   id: string;
   type: MapObjectType;
   position: Vector;
-  state: string = 'idle';
-  properties: Map<string, any> = new Map();
   sprite: string;
+
+  // Framework-level properties
   isActive: boolean = true;
-  pixiSprite: PIXI.Sprite | null = null; // New: Holds the actual PixiJS sprite instance
-  radius: number = 0; // For light sources or other radius-based effects
+  pixiSprite: PIXI.Sprite | null = null;
+  radius: number = 0; // Generic range property for FOV/Interaction/Triggers
+
+  /**
+   * Generic metadata storage
+   * This replaces hardcoded properties like health, patrolPath, etc.
+   */
+  private properties: Map<string, any> = new Map();
 
   constructor(
     id: string,
@@ -43,181 +47,48 @@ export class MapObject {
   }
 
   /**
-   * Set object property
+   * Lifecycle method: Called by the GameEngine every frame
+   */
+  update(deltaTime: number): void {
+    // Framework-level update logic (e.g., sprite synchronization)
+    if (this.pixiSprite) {
+      this.pixiSprite.x = this.position.x;
+      this.pixiSprite.y = this.position.y;
+    }
+  }
+
+  /**
+   * Set generic object property
    */
   setProperty(key: string, value: any): void {
     this.properties.set(key, value);
   }
 
   /**
-   * Get object property
+   * Get generic object property
    */
   getProperty(key: string): any {
     return this.properties.get(key);
   }
 
   /**
-   * Update object state
-   */
-  setState(newState: string): void {
-    this.state = newState;
-  }
-
-  /**
-   * Move object to new position
+   * Generic move method
    */
   moveTo(newPosition: Vector): void {
     this.position = newPosition;
   }
 
   /**
-   * Serialize to JSON
+   * Agnostic serialization
    */
   toJSON(): any {
     return {
       id: this.id,
       type: this.type,
       position: { x: this.position.x, y: this.position.y },
-      state: this.state,
       sprite: this.sprite,
       radius: this.radius,
       properties: Object.fromEntries(this.properties),
     };
-  }
-}
-
-/**
- * NPC class for non-player characters
- */
-export class NPC extends MapObject {
-  targetPosition: Vector | null = null;
-  patrolPath: Vector[] = [];
-  currentPatrolIndex: number = 0;
-  behavior: 'patrol' | 'chase' | 'idle' = 'patrol';
-  speed: number = 1;
-  visionRange: number = 10;
-
-  constructor(id: string, position: Vector, sprite: string) {
-    super(id, MapObjectType.NPC, position, sprite);
-  }
-
-  /**
-   * Set patrol path
-   */
-  setPatrolPath(path: Vector[]): void {
-    this.patrolPath = path;
-    this.currentPatrolIndex = 0;
-  }
-
-  /**
-   * Set chase target
-   */
-  setTarget(target: Vector): void {
-    this.targetPosition = target;
-    this.behavior = 'chase';
-  }
-
-  /**
-   * Return to patrol
-   */
-  returnToPatrol(): void {
-    this.targetPosition = null;
-    this.behavior = 'patrol';
-  }
-
-  /**
-   * Get next waypoint in patrol
-   */
-  getNextPatrolPoint(): Vector | null {
-    if (this.patrolPath.length === 0) return null;
-    const waypoint = this.patrolPath[this.currentPatrolIndex];
-    this.currentPatrolIndex = (this.currentPatrolIndex + 1) % this.patrolPath.length;
-    return waypoint;
-  }
-
-  /**
-   * Check if target is in vision range
-   */
-  canSeeTarget(target: Vector): boolean {
-    return this.position.euclideanDistance(target) <= this.visionRange;
-  }
-}
-
-/**
- * Enemy class for hostile entities
- */
-export class Enemy extends NPC {
-  health: number = 100;
-  maxHealth: number = 100;
-  attackRange: number = 1;
-  attackPower: number = 10;
-
-  constructor(id: string, position: Vector, sprite: string) {
-    super(id, position, sprite);
-    this.type = MapObjectType.ENEMY;
-  }
-
-  /**
-   * Take damage
-   */
-  takeDamage(amount: number): void {
-    this.health = Math.max(0, this.health - amount);
-  }
-
-  /**
-   * Check if alive
-   */
-  isAlive(): boolean {
-    return this.health > 0;
-  }
-
-  /**
-   * Check if in attack range
-   */
-  isInAttackRange(target: Vector): boolean {
-    return this.position.manhattanDistance(target) <= this.attackRange;
-  }
-}
-
-/**
- * Interactive object class
- */
-export class InteractiveObject extends MapObject {
-  isInteractable: boolean = true;
-  interactionText: string = 'Interact';
-  isLevelExit: boolean = false; // New: Determines if this door transitions to next level
-  teleportTargetX?: number; // New: X coordinate for teleportation within the same map
-  teleportTargetY?: number; // New: Y coordinate for teleportation within the same map
-
-  constructor(
-    id: string,
-    type: MapObjectType,
-    position: Vector,
-    sprite: string
-  ) {
-    super(id, type, position, sprite);
-  }
-
-  /**
-   * Handle interaction
-   */
-  interact(): boolean {
-    if (!this.isInteractable) return false;
-
-    switch (this.type) {
-      case MapObjectType.DOOR:
-        this.state = this.state === 'open' ? 'closed' : 'open';
-        return true;
-
-      case MapObjectType.CHEST:
-        this.state = this.state === 'open' ? 'closed' : 'open';
-        return true;
-
-      case MapObjectType.TELEPORT:
-        return true;
-
-      default:
-        return false;
-    }
   }
 }
