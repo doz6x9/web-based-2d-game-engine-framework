@@ -12,126 +12,157 @@ export interface TileDefinition {
   color: number; // Fallback color if sprite unavailable
 }
 
+export enum TileType {
+  GRASS = 0,
+  CAVE_WALL = 1,
+  WATER = 2,
+  SAND = 3,
+  PATH = 4,
+  STONE_FLOOR = 5,
+  DEEP_WATER = 6,
+  SNOW = 7,
+  CAVE_FLOOR = 8,
+  WOOD_FLOOR = 9,
+  SWAMP = 10,
+  FOREST = 11,
+}
+
 export class TileRegistry {
-  private static tiles: Map<string, TileDefinition> = new Map();
+  private static tiles: Map<number, TileDefinition> = new Map();
 
   /**
-   * Initialize default tile definitions
+   * Initialize default tile definitions mapping integers to textures
    */
   static initialize(): void {
-    this.registerTile('grass', {
+    this.registerTile(TileType.GRASS, {
       cost: 1,
       walkable: true,
-      sprite: 'grass_tile',
+      sprite: 'grass',
       name: 'Grass',
       color: 0x4a7c2c,
     });
 
-    this.registerTile('road', {
-      cost: 0.5,
-      walkable: true,
-      sprite: 'road_tile',
-      name: 'Road',
-      color: 0xc4a747,
-    });
-
-    this.registerTile('swamp', {
-      cost: 3,
-      walkable: true,
-      sprite: 'swamp_mud',
-      name: 'Swamp',
-      color: 0x6b4423,
-    });
-
-    this.registerTile('water', {
+    this.registerTile(TileType.CAVE_WALL, {
       cost: 0,
       walkable: false,
-      sprite: 'water_blue',
+      sprite: 'cave_wall',
+      name: 'Cave Wall',
+      color: 0x1a1a1a,
+    });
+
+    this.registerTile(TileType.WATER, {
+      cost: 0,
+      walkable: false,
+      sprite: 'water',
       name: 'Water',
       color: 0x2980b9,
     });
 
-    this.registerTile('wall', {
-      cost: 0,
-      walkable: false,
-      sprite: 'stone_wall',
-      name: 'Wall',
-      color: 0x1a1a1a,
-    });
-
-    this.registerTile('tree', {
-      cost: 0,
-      walkable: false,
-      sprite: 'tree_oak',
-      name: 'Tree',
-      color: 0x2d5016,
-    });
-
-    this.registerTile('sand', {
+    this.registerTile(TileType.SAND, {
       cost: 1.5,
       walkable: true,
-      sprite: 'sand_tile',
+      sprite: 'sand',
       name: 'Sand',
       color: 0xe8d4a8,
     });
 
-    this.registerTile('lava', {
+    this.registerTile(TileType.PATH, {
+      cost: 0.5,
+      walkable: true,
+      sprite: 'path',
+      name: 'Path',
+      color: 0xc4a747,
+    });
+
+    this.registerTile(TileType.STONE_FLOOR, {
+      cost: 1,
+      walkable: true,
+      sprite: 'stone_floor',
+      name: 'Stone Floor',
+      color: 0x696969,
+    });
+
+    this.registerTile(TileType.DEEP_WATER, {
       cost: 0,
       walkable: false,
-      sprite: 'lava_flow',
-      name: 'Lava',
-      color: 0xff4500,
+      sprite: 'deep_water',
+      name: 'Deep Water',
+      color: 0x1d4a7d,
     });
 
-    this.registerTile('ice', {
-      cost: 0.7,
+    this.registerTile(TileType.SNOW, {
+      cost: 1.5,
       walkable: true,
-      sprite: 'ice_tile',
-      name: 'Ice',
-      color: 0xb0e0e6,
+      sprite: 'snow',
+      name: 'Snow',
+      color: 0xffffff,
     });
 
-    this.registerTile('mud', {
-      cost: 2,
+    this.registerTile(TileType.CAVE_FLOOR, {
+      cost: 1.2,
       walkable: true,
-      sprite: 'mud_tile',
-      name: 'Mud',
-      color: 0x8b7355,
+      sprite: 'cave_floor',
+      name: 'Cave Floor',
+      color: 0x4d4d4d,
+    });
+
+    this.registerTile(TileType.WOOD_FLOOR, {
+      cost: 1,
+      walkable: true,
+      sprite: 'wood_floor',
+      name: 'Wood Floor',
+      color: 0x8b4513,
+    });
+
+    this.registerTile(TileType.SWAMP, {
+      cost: 3,
+      walkable: true,
+      sprite: 'swamp',
+      name: 'Swamp',
+      color: 0x6b4423,
+    });
+
+    this.registerTile(TileType.FOREST, {
+      cost: 0,
+      walkable: false,
+      sprite: 'forest',
+      name: 'Forest',
+      color: 0x2d5016,
     });
   }
 
   /**
    * Register a custom tile definition
    */
-  static registerTile(id: string, definition: TileDefinition): void {
+  static registerTile(id: number, definition: TileDefinition): void {
     this.tiles.set(id, definition);
   }
 
   /**
    * Get tile definition by ID
    */
-  static getTile(id: string): TileDefinition | undefined {
+  static getTile(id: number): TileDefinition | undefined {
     return this.tiles.get(id);
   }
 
   /**
    * Get all registered tiles
    */
-  static getAllTiles(): Map<string, TileDefinition> {
+  static getAllTiles(): Map<number, TileDefinition> {
     return this.tiles;
   }
 
   /**
    * Check if tile exists
    */
-  static hasTile(id: string): boolean {
+  static hasTile(id: number): boolean {
     return this.tiles.has(id);
   }
 
   /**
    * Get cost for a tile type
    */
-  static getCost(id: string): number {
+  static getCost(id: number): number {
     const tile = this.tiles.get(id);
     return tile ? tile.cost : Infinity;
   }
@@ -139,7 +170,7 @@ export class TileRegistry {
   /**
    * Check if tile is walkable
    */
-  static isWalkable(id: string): boolean {
+  static isWalkable(id: number): boolean {
     const tile = this.tiles.get(id);
     return tile ? tile.walkable : false;
   }
@@ -147,8 +178,16 @@ export class TileRegistry {
   /**
    * Get color for a tile type
    */
-  static getColor(id: string): number {
+  static getColor(id: number): number {
     const tile = this.tiles.get(id);
     return tile ? tile.color : 0x808080;
+  }
+
+  /**
+   * Get sprite for a tile type
+   */
+  static getSprite(id: number): string | null {
+    const tile = this.tiles.get(id);
+    return tile ? tile.sprite : null;
   }
 }

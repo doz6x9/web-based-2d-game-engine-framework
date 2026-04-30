@@ -15,7 +15,23 @@ class AStarNode {
 
 /**
  * A* Pathfinding Algorithm
- * Finds optimal path considering terrain costs
+ * Finds optimal path considering different terrain costs (e.g., roads, swamps, walls).
+ *
+ * To define custom terrain costs:
+ * 1. Define your own CellType enum or integers mapping in your game logic.
+ * 2. Update the `Grid` instance by setting `.cost` on specific cells.
+ *    Example:
+ *    ```typescript
+ *    const cell = engine.grid.getCell(x, y);
+ *    if (isSwamp(x, y)) {
+ *        cell.cost = 3.0; // Hard to walk through
+ *    } else if (isRoad(x, y)) {
+ *        cell.cost = 0.5; // Easy to walk through
+ *    } else {
+ *        cell.cost = 1.0; // Default terrain cost
+ *    }
+ *    ```
+ * The A* algorithm will automatically prioritize paths with lower cumulative `g` costs.
  */
 export class AStarPathfinder {
   private grid: Grid;
@@ -29,6 +45,9 @@ export class AStarPathfinder {
 
   /**
    * Find path from start to goal
+   * @param start Starting coordinates
+   * @param goal Target coordinates
+   * @returns Array of Vectors representing the path (excluding start, including goal)
    */
   findPath(start: Vector, goal: Vector): Vector[] {
     this.openSet.clear();
@@ -71,7 +90,7 @@ export class AStarPathfinder {
       const neighbors = this.grid.getNeighbors(
         current.position.x,
         current.position.y,
-        false
+        false // Allow diagonal? False by default for basic grid movement
       );
 
       for (const neighbor of neighbors) {
@@ -80,8 +99,11 @@ export class AStarPathfinder {
         if (this.closedSet.has(neighborKey)) continue;
 
         const cell = this.grid.getCell(neighbor.x, neighbor.y);
+        // If there's no cell or it's explicitly not walkable (like a wall), skip it
         if (!cell || !cell.walkable) continue;
 
+        // The critical terrain cost logic.
+        // Cell.cost defaults to 1, but can be higher (swamp) or lower (road)
         const tentativeG = current.g + cell.cost;
 
         let neighborNode = this.nodeMap.get(neighborKey);
@@ -110,7 +132,7 @@ export class AStarPathfinder {
   }
 
   /**
-   * Heuristic function (Manhattan distance)
+   * Heuristic function (Manhattan distance for 4-way movement)
    */
   private heuristic(a: Vector, b: Vector): number {
     return a.manhattanDistance(b);
@@ -123,7 +145,8 @@ export class AStarPathfinder {
     const path: Vector[] = [];
     let current: AStarNode | null = node;
 
-    while (current !== null) {
+    // Do not include the start node in the final array
+    while (current !== null && current.parent !== null) {
       path.unshift(current.position);
       current = current.parent;
     }

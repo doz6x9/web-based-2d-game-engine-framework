@@ -17,12 +17,16 @@ export class FogOfWar {
   private fogMap: Map<string, FogState> = new Map();
   private exploredCells: Set<string> = new Set();
   private visibleCells: Set<string> = new Set();
+  private width: number;
+  private height: number;
+
   constructor(
     width: number,
     height: number,
     _fov: FieldOfView
   ) {
-
+    this.width = width;
+    this.height = height;
     // Initialize all cells as unknown
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
@@ -35,26 +39,37 @@ export class FogOfWar {
    * Update fog of war based on current FOV
    */
   updateFromFOV(fovCells: Set<string>): void {
-    // Clear previous visible cells
+    // Clear previous visible cells status in fogMap
+    this.visibleCells.forEach(key => {
+        if (this.exploredCells.has(key)) {
+            this.fogMap.set(key, FogState.EXPLORED);
+        } else {
+            this.fogMap.set(key, FogState.UNKNOWN);
+        }
+    });
+
+    // Clear previous visible cells set
     this.visibleCells.clear();
 
-    // Update fog state
-    for (let i = 0; i < this.fogMap.size; i++) {
-      const keys = Array.from(this.fogMap.keys());
-      for (const key of keys) {
-        const isCurrentlyVisible = fovCells.has(key);
+    // Set new visible cells
+    fovCells.forEach(key => {
+        this.fogMap.set(key, FogState.VISIBLE);
+        this.visibleCells.add(key);
+        this.exploredCells.add(key);
+    });
+  }
 
-        if (isCurrentlyVisible) {
-          this.fogMap.set(key, FogState.VISIBLE);
-          this.visibleCells.add(key);
-          this.exploredCells.add(key);
-        } else if (this.exploredCells.has(key)) {
-          this.fogMap.set(key, FogState.EXPLORED);
-        } else {
-          this.fogMap.set(key, FogState.UNKNOWN);
+  /**
+   * Marks a set of cells as permanently explored (Flood Fill)
+   */
+  markMultipleExplored(cellKeys: Set<string>): void {
+    cellKeys.forEach(key => {
+        this.exploredCells.add(key);
+        // Only update map state if it's not currently visible
+        if (!this.visibleCells.has(key)) {
+            this.fogMap.set(key, FogState.EXPLORED);
         }
-      }
-    }
+    });
   }
 
   /**

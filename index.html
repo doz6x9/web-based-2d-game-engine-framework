@@ -2,104 +2,103 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Replaced local favicon with an inline SVG to prevent broken icons in preview -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB5PSIuOWVtIiBmb250LXNpemU9IjkwIj7wn46uPC90ZXh0Pjwvc3ZnPg==" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>2D Web-Based Game Engine</title>
   </head>
   <body>
     <div id="app">
       <div class="game-container">
+        <!-- Scale the canvas down slightly via CSS to fit typical previews nicely, keeps pixel aspect ratio -->
         <canvas id="gameCanvas" width="1280" height="720"></canvas>
-      </div>
-      <div class="ui-panel">
-        <div class="info-section">
-          <div class="coordinate-info">
-            <span>
-              <strong>Player:</strong>
-              <span id="playerCoords">0, 0</span>
-            </span>
-            <span>
-              <strong>Mouse:</strong>
-              <span id="mouseCoords">0, 0</span>
-            </span>
-            <span>
-              <strong>Health:</strong>
-              <span id="playerHealth">100/100</span>
-            </span>
+
+        <div id="hudOverlay" class="hud-overlay">
+
+          <!-- Top Left: Health -->
+          <div class="hud-element health-display">
+            HP: <span id="playerHealth">100/100</span>
           </div>
-        </div>
-        <div class="instructions">
-          <p><strong>Controls:</strong> Left Click = Move/Interact | Right Click = Move</p>
-        </div>
-        <div class="action-buttons">
-          <button id="inventoryButton" style="
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1em;
-            margin-top: 10px;
-          ">Inventory</button>
+
+          <!-- Top Center: Level Display -->
+          <div id="levelDisplay" class="hud-element level-display">Level 1</div>
+
+          <!-- Top Right: Collapsible Menu -->
+          <div class="menu-container">
+            <button id="menuToggleButton" class="engine-button">Menu ☰</button>
+            <div id="hudButtons" class="hud-buttons">
+              <button id="muteButton" class="engine-button">Mute</button>
+              <button id="pauseButton" class="engine-button btn-danger">Pause</button>
+              <button id="saveButton" class="engine-button btn-success">Save</button>
+              <button id="loadButton" class="engine-button btn-primary">Load</button>
+              <button id="skipDialogueButton" class="engine-button btn-warning">Skip</button>
+            </div>
+          </div>
+
+          <!-- Bottom Center: Instructions -->
+          <div class="instructions-text">
+            L-Click: Interact | R-Click: Move
+          </div>
+
+          <!-- Bottom Right: Inventory Bag -->
+          <button id="inventoryButton" class="engine-button bag-button">🎒</button>
+
+          <!-- Bottom Left: Dev Tools -->
+          <div class="dev-tools-wrapper">
+            <div id="devToolsPanel" class="engine-panel dev-tools-panel">
+              <div id="fpsCounter" class="fps-counter">FPS: 60</div>
+              <div><strong>Player:</strong> <span id="playerCoords">0, 0</span></div>
+              <div><strong>Mouse:</strong> <span id="mouseCoords">0, 0</span></div>
+            </div>
+            <label class="dev-tools-toggle">
+              <input type="checkbox" id="devToolsCheckbox"> Dev Tools
+            </label>
+          </div>
+
         </div>
       </div>
 
       <!-- Dialogue Box -->
-      <div id="dialogueBox" style="
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 80%;
-        max-width: 800px;
-        background-color: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 20px;
-        border: 2px solid #333;
-        border-radius: 10px;
-        font-family: monospace;
-        display: none; /* Hidden by default */
-        box-sizing: border-box;
-        z-index: 1000;
-      ">
-        <p id="dialogueSpeaker" style="font-weight: bold; color: #ffd700; margin-bottom: 10px;"></p>
-        <p id="dialogueText" style="margin-bottom: 15px; line-height: 1.5;"></p>
-        <div style="text-align: right; font-size: 0.9em; color: #aaa;">
-          Click to continue
-        </div>
+      <div id="dialogueBox" class="engine-panel dialogue-box">
+        <p id="dialogueSpeaker" class="dialogue-speaker"></p>
+        <p id="dialogueText" class="dialogue-text"></p>
+        <div class="dialogue-prompt">▼ Click to continue ▼</div>
       </div>
 
       <!-- Inventory Panel -->
-      <div id="inventoryPanel" style="
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 60%;
-        max-width: 600px;
-        height: 70%;
-        max-height: 500px;
-        background-color: rgba(0, 0, 0, 0.9);
-        color: white;
-        padding: 20px;
-        border: 2px solid #333;
-        border-radius: 10px;
-        font-family: monospace;
-        display: none; /* Hidden by default */
-        box-sizing: border-box;
-        z-index: 1001;
-        overflow-y: auto;
-      ">
-        <h2 style="text-align: center; color: #00ff00; margin-top: 0;">Inventory</h2>
-        <ul id="inventoryList" style="list-style: none; padding: 0;">
-          <!-- Inventory items will be listed here -->
+      <div id="inventoryPanel" class="engine-panel inventory-panel">
+        <h2 class="panel-title">Inventory</h2>
+        <ul id="inventoryList" class="inventory-list">
+          <!-- Inventory items populated by engine -->
         </ul>
-        <div style="text-align: right; font-size: 0.9em; color: #aaa; margin-top: 15px;">
-          Click "Inventory" button to close
-        </div>
+        <div class="close-prompt">Click the Bag icon to close</div>
       </div>
     </div>
+
+    <!-- UI Toggle Logic -->
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // Menu Toggle
+        const menuBtn = document.getElementById('menuToggleButton');
+        const hudBtns = document.getElementById('hudButtons');
+        menuBtn.addEventListener('click', () => {
+          hudBtns.classList.toggle('open');
+        });
+
+        // Dev Tools Toggle
+        const devCheckbox = document.getElementById('devToolsCheckbox');
+        const devPanel = document.getElementById('devToolsPanel');
+        devCheckbox.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            devPanel.classList.add('open');
+          } else {
+            devPanel.classList.remove('open');
+          }
+        });
+      });
+    </script>
+
+    <!-- The actual game engine script -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

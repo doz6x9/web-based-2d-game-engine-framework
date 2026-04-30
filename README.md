@@ -1,251 +1,184 @@
-# 2D Web-Based Game Engine Framework
+# 2D Web-Based Game Engine Framework (Core Engine Branch)
 
-A comprehensive TypeScript-based 2D square grid game engine built with PixiJS, featuring advanced algorithms for pathfinding, field of view calculation, fog of war, and room visibility management.
+A modular, event-driven TypeScript 2D square grid game engine built with PixiJS. 
 
-## Features
+> **Note:** This branch (`engineFramework`) contains the **pure, decoupled engine core**. It provides rendering, pathfinding, visibility algorithms, and an event system. **It does not contain any specific game logic (like health, inventory, or specific enemy AI).** To see a fully playable game built on top of this framework, check out the `develop` branch.
 
-### Core Rendering
-- **Multi-layered Map System**: Support for multiple rendering layers (terrain, entities, effects)
-- **PixiJS Integration**: WebGL/Canvas-based rendering optimized for performance
-- **Dynamic Camera/View Management**: Automatic viewport centering and boundary management
-- **Grid-based Rendering**: 32x32 pixel tiles with customizable colors and styling
+## 🚀 Framework Features
+* **Decoupled Architecture:** Strictly separates rendering and algorithms from game logic using an Event-Driven architecture.
+* **Core Rendering:** Multi-layered map system powered by WebGL (PixiJS 8.x) with automatic camera tracking.
+* **Advanced Algorithms Built-in:**  
+  * Optimal A* Pathfinding with terrain costs (e.g., roads, swamps).
+  * Real-time Ray-casting Field of View (FOV) with shadows.  
+  * Three-state Fog of War (Unknown, Explored, Visible).  
+  * Flood-fill algorithms for room visibility.
+* **Generic Entity System:** A flexible `IEntity` interface allows you to define any game object (Player, NPC, Chest, Door) in your own application code.
 
-### Advanced Algorithms
-- **A* Pathfinding**: Optimal path calculation with terrain cost consideration
-  - Supports different terrain types (grass, swamp, road, water, etc.)
-  - Considers walkability and movement costs
-  
-- **Dynamic Field of View (FOV)**
-  - Ray-casting based visibility calculation
-  - Shadow casting from obstacles
-  - Support for multiple light sources
-  
-- **Fog of War System**
-  - Three visibility states: Unknown, Explored, Visible
-  - Dynamic exploration tracking
-  - Greyed-out exploration memory
-  
-- **Room Visibility (Flood Fill)**
-  - Identify connected rooms
-  - Determine visible rooms from openings
-  - Check if positions are in the same room
+## 📦 Installation & Setup
 
-### User Interaction
-- **Mouse Controls**
-  - Left click: Select target/interact
-  - Right click: Move character
-  - Real-time coordinate tracking
-  
-- **Grid Coordinate Conversion**: Seamless conversion between screen and world coordinates
+**Prerequisites:** Node.js 16+ and npm/yarn.
 
-## Project Structure
+1. Clone the repository and checkout this branch:
+   ```bash
+   git clone <your-repo-url>
+   git checkout engineFramework
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-```
-src/
-├── engine/
-│   ├── core/
-│   │   ├── Vector.ts          # 2D vector math utilities
-│   │   └── Grid.ts            # Grid management and cell types
-│   ├── algorithms/
-│   │   ├── AStar.ts           # A* pathfinding algorithm
-│   │   ├── FieldOfView.ts     # FOV calculation with shadows
-│   │   ├── FloodFill.ts       # Room visibility algorithm
-│   │   └── FogOfWar.ts        # Fog of war tracking system
-│   ├── map/
-│   │   └── MapLayer.ts        # Multi-layer map definitions and loading
-│   ├── render/
-│   │   └── Renderer.ts        # PixiJS renderer and camera system
-│   ├── interaction/
-│   │   └── MouseHandler.ts    # Mouse event handling
-│   └── GameEngine.ts          # Main orchestration class
-├── styles/
-│   └── main.scss              # Game UI styling
-└── main.ts                    # Application entry point
+## 🛠️ How to Build a Game Using This Framework
 
-public/
-├── maps/
-│   └── test-map.json          # Demo map definition
-└── assets/                    # Sprite and texture assets
+This framework uses Dependency Inversion. The engine handles the heavy lifting (graphics, algorithms, grid math), and your application listens to engine events to execute game logic.
 
+### 1. Initialize the Engine
+First, instantiate the engine, define your assets, and call `init()`.
+```typescript
+import { GameEngine } from './engine/GameEngine';
+
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+const engine = new GameEngine();
+
+const assets = [
+  { id: 'player', path: '/assets/hero.png' },
+  { id: 'goblin', path: '/assets/goblin.png' },
+  // ... environment textures
+];
+
+// Initialize engine and load the first map
+await engine.init(canvas, 1280, 720, assets, '/maps/level1.json');
 ```
 
-## Map JSON Format
+### 2. Define Your Game Entities
+Instead of modifying the engine, create your own classes that implement the framework's `IEntity` interface.
+```typescript
+import { IEntity, Vector } from './engine/GameEngine'; // Adjust import path
 
-Maps are defined in JSON with multiple layers:
+export class Player implements IEntity {
+  id: string = 'player_1';
+  position: Vector;
+  spriteName = 'player'; // Must match an asset ID
+  isActive: boolean = true;
+  health: number = 100;
 
+  constructor(startX: number, startY: number) {
+    this.position = new Vector(startX, startY);
+  }
+
+  update(deltaTime: number): void {
+    // Handle player-specific update logic (e.g., smooth movement interpolation)
+  }
+
+  onInteract(): void {
+    // Logic for when something interacts with the player
+  }
+}
+```
+
+### 3. Listen for Map Loading to Spawn Entities
+When a map JSON is loaded, the engine emits a `mapLoaded` event. Use this to parse the custom objects array in your JSON and spawn your entities.
+```typescript
+engine.on('mapLoaded', (mapData) => {
+  console.log("Map loaded! Spawning entities...");
+  
+  if (mapData.objects) {
+    mapData.objects.forEach((obj: any) => {
+      if (obj.type === "PLAYER_SPAWN") {
+        const player = new Player(obj.x, obj.y);
+        engine.addEntity(player);
+      }
+      if (obj.type === "ENEMY") {
+        const enemy = new Enemy(obj.x, obj.y); // Assuming you made an Enemy class
+        engine.addEntity(enemy);
+      }
+    });
+  }
+});
+```
+
+### 4. Handle Input & Game Logic
+The framework automatically converts screen clicks to grid coordinates and emits them. Listen to these events to trigger your game mechanics (like pathfinding or combat).
+```typescript
+engine.on('gridClick', (x: number, y: number, button: string) => {
+  const targetPos = new Vector(x, y);
+
+  if (button === 'right') {
+    // Example: Move player using framework's A* Pathfinder
+    const player = engine.getEntity('player_1');
+    if (player) {
+      const path = engine.pathfinder.findPath(player.position, targetPos);
+      // ... pass path to player class to begin movement
+    }
+  }
+
+  if (button === 'left') {
+    // Example: Check for combat
+    const clickedEntity = engine.getAllEntities().find(e => e.position.equals(targetPos));
+    if (clickedEntity && clickedEntity.id.startsWith('enemy')) {
+      console.log("Attacking enemy!");
+      // ... execute your custom combat math
+    }
+  }
+});
+```
+
+### 5. Hooking into the Game Loop
+If you need a global game state manager (e.g., checking win/loss conditions), listen to the engine's update and render events:
+```typescript
+engine.on('update', (deltaTime: number) => {
+  // Check global game rules, manage UI, update turn-based systems
+});
+
+engine.on('beforeRender', () => {
+  // E.g., center the framework's camera on the player before drawing
+  const player = engine.getEntity('player_1');
+  if (player) {
+    engine.renderer.getCamera().centerOn(player.position);
+  }
+});
+```
+
+## 📡 Engine Event API Reference
+The `GameEngine` extends a custom EventEmitter. Available events include:
+
+| Event Name | Callback Arguments | Description |
+|---|---|---|
+| `mapLoaded` | `(mapData: any)` | Fired when a JSON map finishes parsing. |
+| `gridClick` | `(x: number, y: number, button: 'left' \| 'right')` | Fired when the canvas is clicked. Coordinates are already converted to the grid! |
+| `gridHover` | `(x: number, y: number)` | Fired on mouse movement over the grid. |
+| `update` | `(deltaTime: number)` | Fired every tick before entities update. |
+| `beforeRender`| `()` | Fired right before the PixiJS rendering pipeline begins. |
+| `afterRender` | `(renderer: Renderer)` | Fired after the map and entities are drawn. |
+
+## 🗺️ Map JSON Format Expected
+The engine requires maps defined in a specific multi-layered JSON structure:
 ```json
 {
-  "name": "Map Name",
+  "name": "Level 1",
   "width": 40,
   "height": 30,
   "layers": [
     {
       "name": "terrain",
-      "data": [[1, 2, 3, ...], ...]
+      "data": [[2, 2, 2], [2, 2, 2]] 
     },
     {
       "name": "collision",
-      "data": [[0, 1, 0, ...], ...]
+      "data": [[0, 1, 0], [0, 1, 0]]
     }
+  ],
+  "objects": [
+    { "type": "PLAYER_SPAWN", "x": 5, "y": 5 },
+    { "type": "ENEMY", "x": 10, "y": 8 }
   ]
 }
 ```
+*(Note: Tile types (0=Empty, 1=Wall, 2=Grass, 3=Swamp, 4=Road, 5=Water) dictate A* pathfinding movement costs automatically).*
 
-### Tile Types
-- `0`: Empty/Walkable (grass)
-- `1`: Wall/Obstacle
-- `2`: Grass
-- `3`: Swamp (high movement cost)
-- `4`: Road (low movement cost)
-- `5`: Water (non-walkable)
-
-## Installation & Setup
-
-### Prerequisites
-- Node.js 16+
-- npm or yarn
-
-### Development
-
-1. Install dependencies:
-```bash
-npm install
-```
-
-2. Start development server:
-```bash
-npm run dev
-```
-
-3. Open your browser to `http://localhost:5173`
-
-### Building for Production
-
-```bash
-npm run build
-```
-
-The output will be in the `dist/` directory.
-
-## Usage
-
-### Basic Game Engine Usage
-
-```typescript
-import { GameEngine } from './engine/GameEngine';
-
-const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-const engine = new GameEngine(canvas, 1280, 720);
-
-// Load a map
-await engine.loadMap('/maps/test-map.json');
-
-// Position the player
-engine.setPlayerPosition(new Vector(10, 10));
-```
-
-### Using Pathfinding
-
-```typescript
-import { AStarPathfinder } from './engine/algorithms/AStar';
-import { Vector } from './engine/core/Vector';
-
-const pathfinder = new AStarPathfinder(grid);
-const path = pathfinder.findPath(start, goal);
-```
-
-### Calculating Field of View
-
-```typescript
-import { FieldOfView } from './engine/algorithms/FieldOfView';
-
-const fov = new FieldOfView(grid);
-const visibleCells = fov.calculateFOV(playerPosition, 10);
-```
-
-### Fog of War Tracking
-
-```typescript
-import { FogOfWar } from './engine/algorithms/FogOfWar';
-
-const fogOfWar = new FogOfWar(mapWidth, mapHeight, fov);
-fogOfWar.updateFromFOV(visibleCells);
-
-const state = fogOfWar.getFogState(x, y); // UNKNOWN | EXPLORED | VISIBLE
-```
-
-## Demo Features
-
-The included demo demonstrates:
-- ✅ Multi-layered map rendering
-- ✅ Dynamic field of view calculation
-- ✅ Fog of war with exploration memory
-- ✅ A* pathfinding with terrain costs
-- ✅ Real-time player interaction
-- ✅ Camera following player
-- ✅ Mouse-based grid coordinate system
-- ✅ Responsive UI with coordinate display
-
-## Controls
-
-| Action | Effect |
-|--------|--------|
-| Left Click | Select target cell (shows pathfinding visualization) |
-| Right Click | Move player to clicked cell |
-| Mouse Move | Updates coordinate display |
-
-The FOV is dynamically recalculated based on the player's position, and the fog of war reflects explored areas and current visibility.
-
-## Architecture Highlights
-
-### Separation of Concerns
-- **Grid System**: Handles grid data and walkability
-- **Algorithms**: Pure logic for pathfinding, visibility, etc.
-- **Renderer**: PixiJS rendering abstraction
-- **Interaction**: Input handling and event dispatch
-- **GameEngine**: Orchestrates all systems
-
-### Performance Optimizations
-- PixiJS WebGL rendering for efficient sprite management
-- Heuristic-based A* for faster pathfinding
-- Efficient FOV ray-casting
-- Cell-based flood fill for room detection
-
-### Extensibility
-- Modular architecture allows easy addition of new features
-- Pluggable renderer (can swap PixiJS with another)
-- Customizable tile colors and properties
-- Support for arbitrary number of map layers
-
-## Technologies Used
-
-- **TypeScript**: Type-safe game logic
-- **PixiJS 8.x**: High-performance 2D rendering
-- **Vite**: Fast build tool and dev server
-- **SCSS**: Styled component styling
-- **HTML5 Canvas**: Core rendering target
-
-## Future Enhancements
-
-- [ ] Animated sprites and effects
-- [ ] Multiple light sources with distance falloff
-- [ ] Dynamic pathfinding weights based on FOV
-- [ ] Tile-based animation system
-- [ ] Particle effects
-- [ ] Sound effects and music system
-- [ ] Save/load game state
-- [ ] Multiplayer support
-- [ ] Mobile touch controls
-- [ ] Asset loader with caching
-
-## License
-
-This project is provided as-is for educational and development purposes.
-
-## Contributing
-
-This is a framework designed for game development projects. Feel free to extend and customize it for your needs!
-
----
-
-For more information and updates, visit the project repository.
+## 📄 License & Academic Integrity
+This framework was developed as part of a university thesis project focused on advanced algorithms and decoupled software architecture in web-based game engines. Provided as-is for educational purposes.

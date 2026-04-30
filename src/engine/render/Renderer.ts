@@ -1,17 +1,19 @@
 import * as PIXI from 'pixi.js';
 import { Vector } from '../core/Vector';
-import { GameMap, MapLayer } from '../map/MapLayer';
+import { GameMap } from '../map/MapLayer';
 import { FogOfWar, FogState } from '../algorithms/FogOfWar';
+import { Particle } from './Particles';
+import { TileRegistry } from '../core/TileRegistry';
 
 /**
  * Camera for view management
  */
 export class Camera {
   private position: Vector;
-  private width: number;
-  private height: number;
-  private mapWidth: number;
-  private mapHeight: number;
+  public width: number;
+  public height: number;
+  public mapWidth: number;
+  public mapHeight: number;
   private tileSize: number;
 
   constructor(
@@ -30,11 +32,12 @@ export class Camera {
   }
 
   /**
-   * Center camera on a target
+   * Center camera on a target grid coordinate.
+   * Properly handles arbitrary grid coordinates for maps larger than canvas.
    */
   centerOn(target: Vector): void {
-    let x = target.x - Math.floor((this.width / this.tileSize) / 2);
-    let y = target.y - Math.floor((this.height / this.tileSize) / 2);
+    let x = target.x - (this.width / this.tileSize) / 2;
+    let y = target.y - (this.height / this.tileSize) / 2;
 
     // Clamp to map bounds
     x = Math.max(0, Math.min(x, this.mapWidth - this.width / this.tileSize));
@@ -44,7 +47,7 @@ export class Camera {
   }
 
   /**
-   * Get camera position
+   * Get camera position (top-left corner in grid coordinates)
    */
   getPosition(): Vector {
     return this.position;
@@ -74,23 +77,25 @@ export class Camera {
  */
 export class Renderer {
   private app: PIXI.Application;
-  private stage!: PIXI.Container; // Initialized in init()
-  private camera!: Camera; // Initialized in init()
-  private tileSize: number;
+  private stage!: PIXI.Container;
+  private worldContainer!: PIXI.Container;
+  private hudContainer!: PIXI.Container;
+  public camera!: Camera;
+  public tileSize: number;
   private layers: Map<string, PIXI.Container> = new Map();
-  private tileColors: Map<number, number> = new Map();
   private textures: Map<string, PIXI.Texture> = new Map();
 
-  // Dedicated containers for dynamic elements
-  private fogContainer!: PIXI.Container; // Initialized in init()
-  private fovContainer!: PIXI.Container; // Initialized in init()
-  private markerContainer!: PIXI.Container; // Initialized in init()
-  private spriteContainer!: PIXI.Container; // Initialized in init()
+  private fogContainer!: PIXI.Container;
+  private fovContainer!: PIXI.Container;
+  private markerContainer!: PIXI.Container;
+  private spriteContainer!: PIXI.Container;
+  private particleContainer!: PIXI.Container;
 
-  // Reusable Graphics objects for transient drawing
   private fogGraphics!: PIXI.Graphics;
   private fovGraphics!: PIXI.Graphics;
   private markerGraphics!: PIXI.Graphics;
+
+  private fallbackTexture!: PIXI.Texture;
 
   constructor(tileSize: number = 32) {
     this.tileSize = tileSize;
@@ -106,289 +111,329 @@ export class Renderer {
     this.stage = this.app.stage;
     this.camera = new Camera(width, height, mapWidth, mapHeight, this.tileSize);
 
-    // Initialize dedicated containers
+    this.worldContainer = new PIXI.Container();
+    this.hudContainer = new PIXI.Container();
+
     this.fogContainer = new PIXI.Container();
     this.fovContainer = new PIXI.Container();
     this.markerContainer = new PIXI.Container();
     this.spriteContainer = new PIXI.Container();
+    this.particleContainer = new PIXI.Container();
 
-    // Initialize reusable Graphics objects and add them to their containers
     this.fogGraphics = new PIXI.Graphics();
     this.fogContainer.addChild(this.fogGraphics);
-
     this.fovGraphics = new PIXI.Graphics();
     this.fovContainer.addChild(this.fovGraphics);
-
     this.markerGraphics = new PIXI.Graphics();
     this.markerContainer.addChild(this.markerGraphics);
 
-    // Add containers to stage in desired z-order
-    this.stage.addChild(this.fogContainer);
-    this.stage.addChild(this.fovContainer);
-    this.stage.addChild(this.spriteContainer);
-    this.stage.addChild(this.markerContainer);
+    // Dynamic containers are added on top of map layers
+    this.worldContainer.addChild(this.spriteContainer);
+    this.worldContainer.addChild(this.particleContainer);
+    this.worldContainer.addChild(this.fogContainer);
+    this.worldContainer.addChild(this.fovContainer);
+    this.worldContainer.addChild(this.markerContainer);
 
-    // Initialize tile colors
-    this.initializeTileColors();
+    this.stage.addChild(this.worldContainer);
+    this.stage.addChild(this.hudContainer);
+
+    const graphics = new PIXI.Graphics();
+    graphics.rect(0, 0, this.tileSize, this.tileSize).fill(0xFFFFFF);
+    this.fallbackTexture = this.app.renderer.generateTexture(graphics);
   }
 
-  /**
-   * Initialize tile color palette
-   */
-  private initializeTileColors(): void {
-    this.tileColors.set(0, 0x2d5016); // Empty/Grass
-    this.tileColors.set(1, 0x1a1a1a); // Wall
-    this.tileColors.set(2, 0x4a7c2c); // Grass
-    this.tileColors.set(3, 0x6b4423); // Swamp
-    this.tileColors.set(4, 0xc4a747); // Road
-    this.tileColors.set(5, 0x2980b9); // Water
+  public updateMouseHUD(x: number, y: number): void {
+      // Intentionally left empty per decoupling rules
   }
 
-  /**
-   * Set tile color
-   */
-  setTileColor(tileType: number, color: number): void {
-    this.tileColors.set(tileType, color);
-  }
-
-  /**
-   * Load assets (images, spritesheets, etc.)
-   */
   async loadAssets(assets: { id: string; path: string }[]): Promise<void> {
-    console.log('Renderer: Starting asset loading...');
     for (const asset of assets) {
       try {
         await PIXI.Assets.load(asset.path);
         const texture = PIXI.Texture.from(asset.path);
         this.textures.set(asset.id, texture);
-        console.log(`Renderer: Loaded asset: ${asset.id} from ${asset.path}`);
       } catch (error) {
-        console.error(`Renderer: Failed to load asset: ${asset.id} from ${asset.path}`, error);
-        throw error; // Re-throw to propagate the error
+        console.warn(`Renderer: Failed to load asset: ${asset.id} from ${asset.path}`);
       }
     }
-    console.log('Renderer: All assets processed.');
   }
 
-  /**
-   * Get a loaded texture by its ID.
-   */
   getTexture(spriteId: string): PIXI.Texture | undefined {
     return this.textures.get(spriteId);
   }
 
+  clearMapCache(): void {
+    for (const layer of this.layers.values()) {
+        layer.destroy({ children: true });
+    }
+    this.layers.clear();
+  }
+
   /**
-   * Render a map with multiple layers
+   * Renders the map layers in strict bottom-up z-index order based on the JSON array.
    */
   renderMap(map: GameMap): void {
-    // Only draw map layers if they haven't been drawn yet or map has changed
-    // This prevents redrawing static map tiles every frame
-    if (this.layers.size === 0 || this.layers.get('layer-0')?.children.length === 0) {
-      // Clear existing layers (excluding fog, fov, markers, sprites containers)
-      this.stage.removeChildren();
-      this.layers.clear();
+    const layers = map.getLayers();
 
-      const layers = map.getLayers();
-
-      // Render each layer bottom-up
+    // Initialize map layer containers in strict bottom-up order
+    if (this.layers.size === 0) {
+      let zIndex = 0;
       for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        if (layer.getName() === 'collision') continue;
+
         const layerContainer = new PIXI.Container();
-        // Insert map layers below dynamic containers
-        this.stage.addChildAt(layerContainer, i);
+        // Insert at the specific zIndex (before dynamic containers)
+        this.worldContainer.addChildAt(layerContainer, zIndex++);
         this.layers.set(`layer-${i}`, layerContainer);
+      }
+    }
 
-        this.renderLayer(layerContainer, layers[i]);
+    const cameraPos = this.camera.getPosition();
+    const startX = Math.max(0, Math.floor(cameraPos.x));
+    const startY = Math.max(0, Math.floor(cameraPos.y));
+    const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
+    const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
+
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      if (layer.getName() === 'collision') continue;
+
+      const container = this.layers.get(`layer-${i}`);
+      if (!container) continue;
+
+      const data = layer.getData();
+      let childIndex = 0;
+
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          const tileType = data[y][x];
+          // Skip empty tiles (0) unless specifically required by game logic
+          if (tileType === 0) continue;
+
+          // Purely rely on TileRegistry - no hardcoded "cave_wall" logic
+          const textureId = TileRegistry.getSprite(tileType);
+
+          let sprite: PIXI.Sprite;
+          if (childIndex < container.children.length) {
+            sprite = container.children[childIndex] as PIXI.Sprite;
+            sprite.visible = true;
+          } else {
+            sprite = new PIXI.Sprite();
+            container.addChild(sprite);
+          }
+
+          if (textureId && this.textures.has(textureId)) {
+            sprite.texture = this.textures.get(textureId)!;
+            sprite.tint = 0xFFFFFF;
+          } else {
+            // Fallback for missing textures/types
+            const color = TileRegistry.getColor(tileType);
+            sprite.texture = this.fallbackTexture;
+            sprite.tint = color;
+          }
+
+          sprite.width = this.tileSize;
+          sprite.height = this.tileSize;
+          sprite.x = x * this.tileSize;
+          sprite.y = y * this.tileSize;
+
+          childIndex++;
+        }
       }
 
-      // Re-add dynamic containers to maintain z-order after map layers
-      this.stage.addChild(this.fogContainer);
-      this.stage.addChild(this.fovContainer);
-      this.stage.addChild(this.spriteContainer);
-      this.stage.addChild(this.markerContainer);
+      // Hide unused sprites from pool
+      for (let j = childIndex; j < container.children.length; j++) {
+        container.children[j].visible = false;
+      }
     }
   }
 
-  /**
-   * Render a single layer (called only once per layer when map loads)
-   */
-  private renderLayer(
-    container: PIXI.Container,
-    layer: MapLayer,
-  ): void {
-    // Clear previous layer content only if it was drawn before
-    container.removeChildren();
-
-    const data = layer.getData();
-
-    for (let y = 0; y < data.length; y++) {
-      for (let x = 0; x < data[y].length; x++) {
-        const tileType = data[y][x];
-        const color = this.tileColors.get(tileType) || 0x808080;
-
-        const rect = new PIXI.Graphics();
-        rect.rect(0, 0, this.tileSize, this.tileSize).fill(color);
-
-        // Draw border
-        rect.stroke({ width: 1, color: 0x000000, alpha: 0.2 });
-
-        rect.x = x * this.tileSize;
-        rect.y = y * this.tileSize;
-
-        container.addChild(rect);
-      }
-    }
-    console.log('Renderer: renderLayer called for ' + layer.getName());
-  }
-
-  /**
-   * Render fog of war overlay
-   */
-  renderFogOfWar(
-    fogOfWar: FogOfWar,
-    mapWidth: number,
-    mapHeight: number
-  ): void {
-    this.fogGraphics.clear(); // Clear previous drawing
-
+  renderFogOfWar(fogOfWar: FogOfWar, mapWidth: number, mapHeight: number): void {
+    this.fogGraphics.clear();
     for (let y = 0; y < mapHeight; y++) {
       for (let x = 0; x < mapWidth; x++) {
         const fogState = fogOfWar.getFogState(x, y);
-
         if (fogState === FogState.UNKNOWN) {
-          // Dark fog (unexplored)
-          this.fogGraphics.rect(
-            x * this.tileSize,
-            y * this.tileSize,
-            this.tileSize,
-            this.tileSize
-          ).fill({ color: 0x000000, alpha: 0.8 });
+          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.8 });
         } else if (fogState === FogState.EXPLORED) {
-          // Light fog (explored but not visible)
-          this.fogGraphics.rect(
-            x * this.tileSize,
-            y * this.tileSize,
-            this.tileSize,
-            this.tileSize
-          ).fill({ color: 0x000000, alpha: 0.5 });
+          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.5 });
         }
       }
     }
   }
 
   /**
-   * Draw FOV visualization
+   * Draw FOV visualization with intensity based on distance
+   * Useful for debugging and showing light radius
    */
-  drawFOV(visibleCells: Set<string>, mapWidth: number, mapHeight: number): void {
-    this.fovGraphics.clear(); // Clear previous drawing
+  drawFOV(visibleCells: Set<string>, mapWidth: number, mapHeight: number, fov?: any): void {
+    this.fovGraphics.clear();
+
+    if (!fov) return;
+
+    const cameraPos = this.camera.getPosition();
 
     for (const cellKey of visibleCells) {
       const [x, y] = cellKey.split(',').map(Number);
-      if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
-        this.fovGraphics.rect(
-          x * this.tileSize,
-          y * this.tileSize,
-          this.tileSize,
-          this.tileSize
-        ).stroke({ width: 2, color: 0xff0000, alpha: 0.5 });
+
+      // Only render cells in view
+      if (x < cameraPos.x || x >= cameraPos.x + this.camera.width / this.tileSize ||
+          y < cameraPos.y || y >= cameraPos.y + this.camera.height / this.tileSize) {
+        continue;
+      }
+
+      const screenX = (x - cameraPos.x) * this.tileSize;
+      const screenY = (y - cameraPos.y) * this.tileSize;
+
+      // Get visibility data
+      const visibility = fov.getCellVisibility(x, y);
+      if (visibility) {
+        // Draw with intensity-based alpha
+        const alpha = visibility.intensity * 0.4; // 40% max overlay opacity
+        const color = visibility.isBlocked ? 0x333333 : 0x0066FF; // Gray for shadows, blue for visible
+        this.fovGraphics.rect(screenX, screenY, this.tileSize, this.tileSize).fill({ color, alpha });
       }
     }
   }
 
   /**
-   * Draw a marker at grid coordinates
-   * This now draws into the reusable markerGraphics object.
+   * Draw multiple light sources with their effective radius and intensity
    */
+  drawLightSources(lights: Array<{ position: any; radius: number; intensity?: number; color?: any }>): void {
+    for (const light of lights) {
+      const cameraPos = this.camera.getPosition();
+      const screenX = (light.position.x - cameraPos.x) * this.tileSize + this.tileSize / 2;
+      const screenY = (light.position.y - cameraPos.y) * this.tileSize + this.tileSize / 2;
+
+      const intensity = light.intensity ?? 1.0;
+      const color = light.color ? (light.color.r << 16) | (light.color.g << 8) | light.color.b : 0xFFFF00;
+
+      // Draw light radius circle
+      const radiusPixels = light.radius * this.tileSize;
+      this.fovGraphics
+        .circle(screenX, screenY, radiusPixels)
+        .stroke({ color, width: 2, alpha: intensity * 0.6 });
+
+      // Draw light source core
+      this.fovGraphics.circle(screenX, screenY, 4).fill({ color, alpha: intensity });
+    }
+  }
+
+  /**
+   * Draw combined multiple light FOV with intensity blending
+   */
+  drawMultipleLightFOV(visibility: Map<string, any>): void {
+    this.fovGraphics.clear();
+    const cameraPos = this.camera.getPosition();
+
+    for (const [cellKey, vis] of visibility) {
+      const [x, y] = cellKey.split(',').map(Number);
+
+      // Only render cells in view
+      if (x < cameraPos.x || x >= cameraPos.x + this.camera.width / this.tileSize ||
+          y < cameraPos.y || y >= cameraPos.y + this.camera.height / this.tileSize) {
+        continue;
+      }
+
+      const screenX = (x - cameraPos.x) * this.tileSize;
+      const screenY = (y - cameraPos.y) * this.tileSize;
+
+      // Color based on intensity: dark blue -> bright yellow/white
+      const intensity = Math.min(1, vis.intensity);
+      const color = this.intensityToColor(intensity);
+      const alpha = intensity * 0.5;
+
+      this.fovGraphics.rect(screenX, screenY, this.tileSize, this.tileSize).fill({ color, alpha });
+    }
+  }
+
+  /**
+   * Convert intensity (0.0 - 1.0) to color gradient (blue -> yellow -> white)
+   */
+  private intensityToColor(intensity: number): number {
+    if (intensity < 0.3) {
+      // Dark blue to light blue
+      const t = intensity / 0.3;
+      const r = Math.floor(0 + (66 - 0) * t);
+      const g = Math.floor(0 + (150 - 0) * t);
+      const b = Math.floor(255);
+      return (r << 16) | (g << 8) | b;
+    } else if (intensity < 0.7) {
+      // Light blue to yellow
+      const t = (intensity - 0.3) / 0.4;
+      const r = Math.floor(66 + (255 - 66) * t);
+      const g = Math.floor(150 + (255 - 150) * t);
+      const b = Math.floor(255 - 255 * t);
+      return (r << 16) | (g << 8) | b;
+    } else {
+      // Yellow to white
+      const t = (intensity - 0.7) / 0.3;
+      const r = 255;
+      const g = 255;
+      const b = Math.floor(0 + (255 - 0) * t);
+      return (r << 16) | (g << 8) | b;
+    }
+  }
+
   drawMarker(x: number, y: number, color: number = 0xff0000, size: number = 8): void {
-    // Note: markerGraphics is cleared once per frame in clearMarkers,
-    // so this method just adds to it.
     this.markerGraphics.circle(
-      x * this.tileSize + this.tileSize / 2, // Center X
-      y * this.tileSize + this.tileSize / 2, // Center Y
+      x * this.tileSize + this.tileSize / 2,
+      y * this.tileSize + this.tileSize / 2,
       size
     ).fill(color);
   }
 
-  /**
-   * Clear all markers from the marker container
-   * This now clears the reusable markerGraphics object.
-   */
   clearMarkers(): void {
     this.markerGraphics.clear();
   }
 
-  /**
-   * This method is now responsible for updating an EXISTING sprite's position.
-   * It no longer creates new sprites.
-   * GameEngine will manage creating and adding sprites to spriteContainer.
-   */
+  renderParticles(particles: Particle[]): void {
+    this.particleContainer.removeChildren();
+    for (const particle of particles) {
+      const graphics = new PIXI.Graphics();
+      graphics.circle(0, 0, particle.size).fill({ color: particle.color, alpha: particle.alpha });
+      graphics.x = particle.position.x * this.tileSize + this.tileSize / 2;
+      graphics.y = particle.position.y * this.tileSize + this.tileSize / 2;
+      graphics.rotation = particle.rotation;
+      this.particleContainer.addChild(graphics);
+    }
+  }
+
   updateSpritePosition(sprite: PIXI.Sprite, x: number, y: number): void {
     sprite.x = x * this.tileSize;
     sprite.y = y * this.tileSize;
   }
 
-  /**
-   * Get the sprite container for GameEngine to manage sprites.
-   */
   getSpriteContainer(): PIXI.Container {
     return this.spriteContainer;
   }
 
-  /**
-   * Creates a PIXI.Sprite from a loaded texture and adds it to the sprite container.
-   * This method handles the PIXI-specific creation and addition to the display list.
-   * The GameEngine should store the returned sprite reference to update its position later.
-   * @param textureId The ID of the loaded texture (as provided to loadAssets).
-   * @param x World X coordinate for initial placement.
-   * @param y World Y coordinate for initial placement.
-   * @returns The created PIXI.Sprite.
-   * @throws Error if texture with textureId is not found.
-   */
   public createSprite(textureId: string, x: number, y: number): PIXI.Sprite {
     const texture = this.getTexture(textureId);
-    if (!texture) {
-      throw new Error(`Renderer: Texture with ID '${textureId}' not found. Did you load it?`);
-    }
+    if (!texture) throw new Error(`Renderer: Texture '${textureId}' not found.`);
     const sprite = new PIXI.Sprite(texture);
-    this.updateSpritePosition(sprite, x, y); // Set initial position
+    this.updateSpritePosition(sprite, x, y);
     this.spriteContainer.addChild(sprite);
     return sprite;
   }
 
-  /**
-   * Removes a PIXI.Sprite from the sprite container and destroys its resources.
-   * @param sprite The PIXI.Sprite to remove.
-   */
   public removeSprite(sprite: PIXI.Sprite): void {
     this.spriteContainer.removeChild(sprite);
-    sprite.destroy(); // Clean up PIXI resources associated with the sprite
+    sprite.destroy();
   }
 
-  /**
-   * Get camera
-   */
-  getCamera(): Camera {
-    return this.camera;
+  getCamera(): Camera { return this.camera; }
+  getApp(): PIXI.Application { return this.app; }
+
+  applyCameraTransform(): void {
+    const cameraPos = this.camera.getPosition();
+    this.worldContainer.x = -cameraPos.x * this.tileSize;
+    this.worldContainer.y = -cameraPos.y * this.tileSize;
   }
 
-  /**
-   * Get PixiJS app
-   */
-  getApp(): PIXI.Application {
-    return this.app;
-  }
-
-  /**
-   * Resize renderer
-   */
   resize(width: number, height: number): void {
     this.app.renderer.resize(width, height);
-    // Re-initialize camera with new dimensions and map dimensions
-    this.camera = new Camera(
-      width,
-      height,
-      this.camera.mapWidth, // Keep existing map dimensions
-      this.camera.mapHeight, // Keep existing map dimensions
-      this.tileSize
-    );
+    this.camera = new Camera(width, height, this.camera.mapWidth, this.camera.mapHeight, this.tileSize);
   }
 }
