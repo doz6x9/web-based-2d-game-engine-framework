@@ -24,7 +24,7 @@ export class UIManager {
   private playerCoordsElement: HTMLElement | null;
   private mouseCoordsElement: HTMLElement | null;
 
-  private _isInventoryOpen: boolean = false;
+  private _isInventoryOpen: boolean = false;  private equippedWeaponId: string | null = null;
 
   // Callback functions for HUD buttons
   private onPauseCallback: (() => void) | null = null;
@@ -32,6 +32,7 @@ export class UIManager {
   private onLoadCallback: (() => void) | null = null;
   private onSkipDialogueCallback: (() => void) | null = null;
   private onMuteCallback: (() => void) | null = null;
+  private onUseItemCallback: ((itemId: string) => void) | null = null;
 
   // FPS tracking
   private frameCount: number = 0;
@@ -121,6 +122,13 @@ export class UIManager {
     }
   }
 
+  setEquippedWeaponId(id: string | null): void {
+    this.equippedWeaponId = id;
+    if (this._isInventoryOpen) {
+      this.updateInventoryDisplay(this.inventory);
+    }
+  }
+
   updateInventoryDisplay(inventory: Inventory): void {
     if (this.inventoryList) {
       this.inventoryList.innerHTML = '';
@@ -136,7 +144,23 @@ export class UIManager {
           li.style.padding = '5px';
           li.style.border = '1px solid #555';
           li.style.backgroundColor = '#222';
-          li.textContent = `${item.name} (x${item.quantity}) - ${item.description}`;
+
+          let itemText = `${item.name} (x${item.quantity}) - ${item.description}`;
+          if (this.equippedWeaponId && item.id === this.equippedWeaponId) {
+             itemText = `[EQUIPPED] ` + itemText;
+             li.style.borderColor = '#51cf66';
+             li.style.backgroundColor = '#2a4a2a';
+          }
+          li.textContent = itemText;
+
+          const useBtn = document.createElement('button');
+          useBtn.textContent = 'Use/Equip';
+          useBtn.style.marginLeft = '10px';
+          useBtn.onclick = () => {
+             if (this.onUseItemCallback) this.onUseItemCallback(item.id);
+          };
+          li.appendChild(useBtn);
+
           this.inventoryList!.appendChild(li);
         });
       }
@@ -203,6 +227,10 @@ export class UIManager {
 
   onMute(callback: () => void): void {
     this.onMuteCallback = callback;
+  }
+
+  onUseItem(callback: (itemId: string) => void): void {
+    this.onUseItemCallback = callback;
   }
 
   setPauseButtonState(isPaused: boolean): void {

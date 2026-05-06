@@ -1,5 +1,5 @@
 import './styles/main.scss';
-import { GameEngine } from './engine/GameEngine';
+import { GameApp } from './GameApp';
 
 /**
  * Initialize the game
@@ -15,25 +15,21 @@ async function initializeGame() {
   const gameWidth = 1280;
   const gameHeight = 720;
 
-  // Create and initialize the game engine
-  const engine = new GameEngine();
+  // Create and initialize the game app
+  const gameApp = new GameApp();
 
   try {
-    // Initialize the engine (including renderer, mouse handler, UI manager, asset loading, map loading)
-    await engine.init(canvas, gameWidth, gameHeight);
-    console.log('GameEngine initialized successfully.');
+    await gameApp.init(canvas, gameWidth, gameHeight);
+    console.log('GameApp initialized successfully.');
 
     // Update UI with player position
     setInterval(() => {
-      const playerPos = engine.getPlayerPosition();
+      const playerPos = gameApp.getEngine().getPlayerPosition();
       const coordsElement = document.getElementById('playerCoords');
       if (coordsElement) {
         coordsElement.textContent = `${playerPos.x}, ${playerPos.y}`;
       }
     }, 100);
-
-    // The mouse coordinate display is now handled by the Renderer directly.
-    // The mouseHandler in GameEngine will call the Renderer's updateMouseHUD method.
 
   } catch (error) {
     console.error('Failed to initialize game:', error);

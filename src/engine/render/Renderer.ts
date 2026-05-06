@@ -112,6 +112,8 @@ export class Renderer {
   async init(canvas: HTMLCanvasElement, width: number, height: number, mapWidth: number, mapHeight: number): Promise<void> {
     await this.app.init({ canvas, width, height });
 
+    this.app.ticker.maxFPS = 0;
+
     this.stage = this.app.stage;
     this.camera = new Camera(width, height, mapWidth, mapHeight, this.tileSize);
 
@@ -123,6 +125,7 @@ export class Renderer {
     this.fovContainer = new PIXI.Container();
     this.markerContainer = new PIXI.Container();
     this.spriteContainer = new PIXI.Container();
+    this.spriteContainer.sortableChildren = true; // Enable zIndex sorting
     this.particleContainer = new PIXI.Container();
 
     // Graphics
