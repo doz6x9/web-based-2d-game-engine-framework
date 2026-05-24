@@ -1,3 +1,16 @@
+export interface MapLayerJSON {
+  name?: string;
+  data?: number[] | number[][];
+}
+
+export interface MapJSON {
+  name?: string;
+  width?: number;
+  height?: number;
+  layers?: MapLayerJSON[];
+  objects?: unknown[];
+}
+
 /**
  * Represents a single layer in a multi-layered map
  */
@@ -125,7 +138,7 @@ export class MapLoader {
    * Parse map JSON data
    */
   static parseMapJSON(
-    mapData: any
+    mapData: MapJSON
   ): GameMap {
     const mapWidth = mapData.width || 0;
     const mapHeight = mapData.height || 0;
@@ -138,15 +151,18 @@ export class MapLoader {
 
     if (mapData.layers && Array.isArray(mapData.layers)) {
       for (const layerData of mapData.layers) {
-        let formattedData = layerData.data;
+        const layerDataValues = layerData.data ?? [];
+        let formattedData: number[][];
 
         // Automatically convert 1D array to 2D array if necessary (e.g. from Tiled exports)
-        if (formattedData && formattedData.length > 0 && typeof formattedData[0] === 'number') {
-          const new2D = [];
-          for (let i = 0; i < formattedData.length; i += mapWidth) {
-            new2D.push(formattedData.slice(i, i + mapWidth));
+        if (layerDataValues.length > 0 && typeof layerDataValues[0] === 'number') {
+          formattedData = [];
+          const flatData = layerDataValues as number[];
+          for (let i = 0; i < flatData.length; i += mapWidth) {
+            formattedData.push(flatData.slice(i, i + mapWidth));
           }
-          formattedData = new2D;
+        } else {
+          formattedData = layerDataValues as number[][];
         }
 
         const layer = new MapLayer(

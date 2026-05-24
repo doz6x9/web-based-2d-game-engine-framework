@@ -1,6 +1,6 @@
 import { Vector } from './core/Vector';
 import { Grid, CellType } from './core/Grid';
-import { GameMap, MapLoader } from './map/MapLayer';
+import { GameMap, MapLoader, type MapJSON } from './map/MapLayer';
 import { AStarPathfinder } from './algorithms/AStar';
 import { FieldOfView } from './algorithms/FieldOfView';
 import { FogOfWar } from './algorithms/FogOfWar';
@@ -13,6 +13,29 @@ import { AnimationLibrary } from './render/Animation';
 import { ParticleSystem } from './render/Particles';
 import * as PIXI from 'pixi.js';
 
+export interface EngineLifecycleOptions {
+  autoStart?: boolean;
+  showMouseCoordinates?: boolean;
+}
+
+export interface EngineInitOptions extends EngineLifecycleOptions {
+  canvas: HTMLCanvasElement;
+  width: number;
+  height: number;
+  assets?: AssetConfig[];
+  initialMapUrl?: string;
+}
+
+export interface EngineEventMap {
+  mapLoaded: [mapData: MapJSON];
+  gridClick: [x: number, y: number, button: 'left' | 'right'];
+  gridHover: [x: number, y: number];
+  update: [deltaTime: number];
+  beforeRender: [];
+  afterRender: [renderer: Renderer];
+}
+
+export type EventCallback<Args extends unknown[] = unknown[]> = (...args: Args) => void;
 
 /**
  * Interface for any entity managed by the engine.
@@ -40,27 +63,31 @@ export interface AssetConfig {
 /**
  * Simple event emitter for framework events
  */
-export class EventEmitter {
-  private listeners: Map<string, Array<(...args: any[]) => void>> = new Map();
+export class EventEmitter<TEvents extends { [K in keyof TEvents]: unknown[] } = Record<string, unknown[]>> {
+  private listeners: Map<keyof TEvents & string, Array<EventCallback<any[]>>> = new Map();
 
-  on(event: string, callback: (...args: any[]) => void): void {
+  on<K extends keyof TEvents & string>(event: K, callback: EventCallback<TEvents[K]>): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
-    this.listeners.get(event)!.push(callback);
+    this.listeners.get(event)!.push(callback as EventCallback<any[]>);
   }
 
-  off(event: string, callback: (...args: any[]) => void): void {
+  off<K extends keyof TEvents & string>(event: K, callback: EventCallback<TEvents[K]>): void {
     const callbacks = this.listeners.get(event);
     if (!callbacks) return;
-    const index = callbacks.indexOf(callback);
+    const index = callbacks.indexOf(callback as EventCallback<any[]>);
     if (index !== -1) callbacks.splice(index, 1);
   }
 
-  emit(event: string, ...args: any[]): void {
+  emit<K extends keyof TEvents & string>(event: K, ...args: TEvents[K]): void {
     const callbacks = this.listeners.get(event);
     if (!callbacks) return;
     callbacks.forEach(cb => cb(...args));
+  }
+
+  removeAllListeners(): void {
+    this.listeners.clear();
   }
 }
 
@@ -69,7 +96,7 @@ export class EventEmitter {
  * Handles rendering, core subsystems, and decoupled input events.
  * Game-specific logic is entirely delegated to the consuming application.
  */
-export class GameEngine extends EventEmitter {
+export class GameEngine extends EventEmitter<EngineEventMap> {
   public map: GameMap | null = null;
   public grid: Grid;
   public renderer: Renderer;
@@ -86,9 +113,14 @@ export class GameEngine extends EventEmitter {
   private gameTime: number = 0;
   public isRunning: boolean = false; // Made public for game to control
   private boundGameLoop = this.pixiGameLoop.bind(this);
+  private lifecycleOptions: Required<EngineLifecycleOptions> = {
+    autoStart: true,
+    showMouseCoordinates: false,
+  };
 
-  constructor() {
+  constructor(options: EngineLifecycleOptions = {}) {
     super();
+    this.lifecycleOptions = this.resolveLifecycleOptions(options);
     this.grid = new Grid(100, 100);
     this.renderer = new Renderer(32);
     this.keyboardHandler = new KeyboardHandler();
@@ -109,13 +141,17 @@ export class GameEngine extends EventEmitter {
     canvasWidth: number,
     canvasHeight: number,
     assetsToLoad: AssetConfig[],
-    initialMapUrl?: string
+    initialMapUrl?: string,
+    options: EngineLifecycleOptions = {}
   ): Promise<void> {
+    this.lifecycleOptions = this.resolveLifecycleOptions(options);
     // Initialize renderer
     await this.renderer.init(canvas, canvasWidth, canvasHeight, this.grid.getWidth(), this.grid.getHeight());
 
     // Initialize handlers
-    this.mouseHandler = new MouseHandler(canvas, this.renderer.getCamera(), this.renderer.tileSize);
+    this.mouseHandler = new MouseHandler(canvas, this.renderer.getCamera(), this.renderer.tileSize, {
+      showCoordinateOverlay: this.lifecycleOptions.showMouseCoordinates,
+    });
     this.fogOfWar = new FogOfWar(this.grid.getWidth(), this.grid.getHeight(), this.fov); // FogOfWar is engine-level
 
     // Load provided assets
@@ -142,7 +178,27 @@ export class GameEngine extends EventEmitter {
     this.setupInputHandlers();
 
     // Start the game loop
-    this.startGameLoop();
+    if (this.lifecycleOptions.autoStart) {
+      this.startGameLoop();
+    }
+  }
+
+  async initWithOptions(options: EngineInitOptions): Promise<void> {
+    await this.init(
+      options.canvas,
+      options.width,
+      options.height,
+      options.assets ?? [],
+      options.initialMapUrl,
+      options
+    );
+  }
+
+  private resolveLifecycleOptions(options: EngineLifecycleOptions = {}): Required<EngineLifecycleOptions> {
+    return {
+      autoStart: options.autoStart ?? this.lifecycleOptions.autoStart,
+      showMouseCoordinates: options.showMouseCoordinates ?? this.lifecycleOptions.showMouseCoordinates,
+    };
   }
 
   /**
@@ -165,6 +221,13 @@ export class GameEngine extends EventEmitter {
   async loadMap(mapUrl: string): Promise<void> {
     const response = await fetch(mapUrl);
     const mapData = await response.json();
+    this.loadMapData(mapData);
+  }
+
+  /**
+   * Load a map from already parsed JSON data.
+   */
+  loadMapData(mapData: MapJSON): void {
     this.map = MapLoader.parseMapJSON(mapData);
 
     const collisionLayer = this.map.getLayerByName('collision');
@@ -335,5 +398,15 @@ export class GameEngine extends EventEmitter {
    */
   public clearMapCache(): void {
     this.renderer.clearMapCache();
+  }
+
+  public destroy(): void {
+    this.stopGameLoop();
+    this.clear();
+    this.mouseHandler?.destroy();
+    this.keyboardHandler.destroy();
+    this.particleSystem.clear();
+    this.removeAllListeners();
+    this.renderer.getApp().destroy(true, { children: true });
   }
 }

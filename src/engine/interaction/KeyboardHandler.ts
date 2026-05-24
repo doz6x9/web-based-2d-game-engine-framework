@@ -3,19 +3,23 @@ export enum KeyboardEventType {
   KEY_UP = 'keyup',
 }
 
+export type KeyboardCallback = (code: string) => void;
+
 export class KeyboardHandler {
-  private listeners: Map<KeyboardEventType, Set<Function>> = new Map();
+  private listeners: Map<KeyboardEventType, Set<KeyboardCallback>> = new Map();
   private pressedKeys: Set<string> = new Set();
+  private readonly boundKeyDown = this.onKeyDown.bind(this);
+  private readonly boundKeyUp = this.onKeyUp.bind(this);
 
   constructor() {
-    window.addEventListener('keydown', this.onKeyDown.bind(this));
-    window.addEventListener('keyup', this.onKeyUp.bind(this));
+    window.addEventListener('keydown', this.boundKeyDown);
+    window.addEventListener('keyup', this.boundKeyUp);
   }
 
   /**
    * Register an event listener for a keyboard event type.
    */
-  on(eventType: KeyboardEventType, callback: Function): void {
+  on(eventType: KeyboardEventType, callback: KeyboardCallback): void {
     if (!this.listeners.has(eventType)) {
       this.listeners.set(eventType, new Set());
     }
@@ -25,7 +29,7 @@ export class KeyboardHandler {
   /**
    * Remove an event listener.
    */
-  off(eventType: KeyboardEventType, callback: Function): void {
+  off(eventType: KeyboardEventType, callback: KeyboardCallback): void {
     if (this.listeners.has(eventType)) {
       this.listeners.get(eventType)!.delete(callback);
     }
@@ -69,8 +73,8 @@ export class KeyboardHandler {
    * Clean up event listeners.
    */
   destroy(): void {
-    window.removeEventListener('keydown', this.onKeyDown.bind(this));
-    window.removeEventListener('keyup', this.onKeyUp.bind(this));
+    window.removeEventListener('keydown', this.boundKeyDown);
+    window.removeEventListener('keyup', this.boundKeyUp);
     this.listeners.clear();
     this.pressedKeys.clear();
   }

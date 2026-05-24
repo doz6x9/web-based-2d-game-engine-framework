@@ -1,19 +1,56 @@
 {
-  "name": "project-work-2",
-  "private": true,
-  "version": "0.0.0",
+  "name": "web-based-2d-game-engine-framework",
+  "version": "0.1.0",
+  "description": "A modular TypeScript 2D grid game engine framework for the web, powered by PixiJS.",
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "typecheck": "tsc --noEmit",
+    "build": "npm run clean && npm run typecheck && npm run build:lib && npm run build:types",
+    "build:lib": "vite build --config vite.lib.config.ts",
+    "build:types": "tsc -p tsconfig.lib.json",
+    "build:demo": "vite build --outDir dist-demo --emptyOutDir",
+    "clean": "node -e \"const fs=require('fs'); for (const p of ['dist','dist-demo']) fs.rmSync(p,{recursive:true,force:true});\"",
+    "preview": "vite preview",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "2d",
+    "game-engine",
+    "pixi",
+    "pixijs",
+    "typescript",
+    "tilemap",
+    "pathfinding",
+    "fov"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "pixi.js": "^8.18.1"
   },
   "devDependencies": {
+    "pixi.js": "^8.18.1",
+    "sass": "^1.99.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.10"
   },
-  "dependencies": {
-    "pixi.js": "^8.18.1",
-    "sass": "^1.99.0"
-  }
+  "dependencies": {}
 }

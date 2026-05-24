@@ -18,6 +18,10 @@ export interface ICamera {
   screenToWorld(screenX: number, screenY: number): Vector;
 }
 
+export interface MouseHandlerOptions {
+  showCoordinateOverlay?: boolean;
+}
+
 /**
  * Mouse interaction handler
  */
@@ -27,17 +31,24 @@ export class MouseHandler {
   private tileSize: number = 32;
   private mousePosition: Vector = new Vector(0, 0);
   private callbacks: Map<MouseEventType, Array<(pos: Vector) => void>> = new Map();
+  private readonly showCoordinateOverlay: boolean;
+  private readonly boundMouseDown = this.handleMouseDown.bind(this);
+  private readonly boundMouseMove = this.handleMouseMove.bind(this);
+  private readonly boundContextMenu = this.handleContextMenu.bind(this);
 
   // Elements for printing coordinate debugging to screen
   private coordinateOverlay: HTMLDivElement | null = null;
   private overlayTimeout: number | null = null;
 
-  constructor(canvas: HTMLCanvasElement, camera?: ICamera, tileSize?: number) {
+  constructor(canvas: HTMLCanvasElement, camera?: ICamera, tileSize?: number, options: MouseHandlerOptions = {}) {
     this.canvas = canvas;
     this.camera = camera || null;
     if (tileSize) this.tileSize = tileSize;
+    this.showCoordinateOverlay = options.showCoordinateOverlay ?? false;
 
-    this.setupCoordinateOverlay();
+    if (this.showCoordinateOverlay) {
+      this.setupCoordinateOverlay();
+    }
     this.setupEventListeners();
   }
 
@@ -74,6 +85,7 @@ export class MouseHandler {
    * Display coordinates at the clicked location
    */
   private printCoordinatesToScreen(gridPos: Vector, clientX: number, clientY: number, button: string): void {
+    if (!this.showCoordinateOverlay) return;
     if (!this.coordinateOverlay || !this.canvas.parentElement) return;
 
     // Get canvas bounds relative to viewport
@@ -114,26 +126,30 @@ export class MouseHandler {
    */
   private setupEventListeners(): void {
     // Use mousedown instead of click to reliably capture right-clicks
-    this.canvas.addEventListener('mousedown', (e) => {
-      const pos = this.getMouseGridPosition(e);
-      if (e.button === 0) {
-        this.printCoordinatesToScreen(pos, e.clientX, e.clientY, 'Left');
-        this.triggerEvent(MouseEventType.LEFT_CLICK, pos);
-      } else if (e.button === 2) {
-        this.printCoordinatesToScreen(pos, e.clientX, e.clientY, 'Right');
-        this.triggerEvent(MouseEventType.RIGHT_CLICK, pos);
-      }
-    });
+    this.canvas.addEventListener('mousedown', this.boundMouseDown);
+    this.canvas.addEventListener('mousemove', this.boundMouseMove);
+    this.canvas.addEventListener('contextmenu', this.boundContextMenu);
+  }
 
-    this.canvas.addEventListener('mousemove', (e) => {
-      const pos = this.getMouseGridPosition(e);
-      this.mousePosition = pos;
-      this.triggerEvent(MouseEventType.MOVE, pos);
-    });
+  private handleMouseDown(e: MouseEvent): void {
+    const pos = this.getMouseGridPosition(e);
+    if (e.button === 0) {
+      this.printCoordinatesToScreen(pos, e.clientX, e.clientY, 'Left');
+      this.triggerEvent(MouseEventType.LEFT_CLICK, pos);
+    } else if (e.button === 2) {
+      this.printCoordinatesToScreen(pos, e.clientX, e.clientY, 'Right');
+      this.triggerEvent(MouseEventType.RIGHT_CLICK, pos);
+    }
+  }
 
-    this.canvas.addEventListener('contextmenu', (e) => {
-      e.preventDefault(); // Prevent the browser's default context menu
-    });
+  private handleMouseMove(e: MouseEvent): void {
+    const pos = this.getMouseGridPosition(e);
+    this.mousePosition = pos;
+    this.triggerEvent(MouseEventType.MOVE, pos);
+  }
+
+  private handleContextMenu(e: MouseEvent): void {
+    e.preventDefault();
   }
 
   /**
@@ -197,5 +213,19 @@ export class MouseHandler {
    */
   getMousePosition(): Vector {
     return this.mousePosition;
+  }
+
+  destroy(): void {
+    this.canvas.removeEventListener('mousedown', this.boundMouseDown);
+    this.canvas.removeEventListener('mousemove', this.boundMouseMove);
+    this.canvas.removeEventListener('contextmenu', this.boundContextMenu);
+    this.callbacks.clear();
+
+    if (this.overlayTimeout !== null) {
+      window.clearTimeout(this.overlayTimeout);
+      this.overlayTimeout = null;
+    }
+    this.coordinateOverlay?.remove();
+    this.coordinateOverlay = null;
   }
 }
