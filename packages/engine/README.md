@@ -203,3 +203,12 @@ Useful scripts, run from `packages/engine`:
 ## License
 
 MIT
+
+## Running the Tests
+
+The engine has unit tests (Vitest) for A* pathfinding (including terrain costs and shortest-path checks), field of view and shadows, several lights at once, Fog of War, flood fill room reveal, and turning mouse clicks into grid cells.
+
+```bash
+npm test            # from the repository root, or inside packages/engine
+npm run test:watch  # re-run on save (inside packages/engine)
+```

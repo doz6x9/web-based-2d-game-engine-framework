@@ -11,6 +11,7 @@
     "build:engine": "npm run build -w packages/engine",
     "build:demo": "npm run build -w apps/demo",
     "dev": "npm run build -w packages/engine && npm run dev -w apps/demo",
-    "typecheck": "npm run typecheck --workspaces"
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm test -w packages/engine"
   }
 }
