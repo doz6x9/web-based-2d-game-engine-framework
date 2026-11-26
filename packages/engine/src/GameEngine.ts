@@ -60,6 +60,12 @@ export interface IEntity {
 export interface AssetConfig {
   id: string;
   path: string;
+  /**
+   * 'image' (default) registers one texture under `id`.
+   * 'spritesheet' loads a PixiJS spritesheet JSON and registers every frame
+   * under its frame name, so one request and one GPU texture serve many sprites.
+   */
+  type?: 'image' | 'spritesheet';
 }
 
 /**

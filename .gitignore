@@ -26,3 +26,6 @@ dist-ssr
 .github
 
 
+
+# Generated texture atlas (built from apps/demo/art/atlas.json)
+apps/demo/public/atlas/

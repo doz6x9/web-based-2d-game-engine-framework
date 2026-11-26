@@ -152,9 +152,13 @@ export class Renderer {
       // Intentionally left empty per decoupling rules
   }
 
-  async loadAssets(assets: { id: string; path: string }[]): Promise<void> {
+  async loadAssets(assets: { id: string; path: string; type?: 'image' | 'spritesheet' }[]): Promise<void> {
     for (const asset of assets) {
       try {
+        if (asset.type === 'spritesheet') {
+          await this.loadSpritesheet(asset.path);
+          continue;
+        }
         await PIXI.Assets.load(asset.path);
         const texture = PIXI.Texture.from(asset.path);
         this.textures.set(asset.id, texture);
@@ -162,6 +166,19 @@ export class Renderer {
         console.warn(`Renderer: Failed to load asset: ${asset.id} from ${asset.path}`);
       }
     }
+  }
+
+  /**
+   * Load a PixiJS spritesheet (JSON + atlas image) and register every frame
+   * as a texture under its frame name. Returns the registered frame names.
+   */
+  async loadSpritesheet(jsonPath: string): Promise<string[]> {
+    const sheet = await PIXI.Assets.load<PIXI.Spritesheet>(jsonPath);
+    const names = Object.keys(sheet.textures);
+    for (const name of names) {
+      this.textures.set(name, sheet.textures[name]);
+    }
+    return names;
   }
 
   getTexture(spriteId: string): PIXI.Texture | undefined {

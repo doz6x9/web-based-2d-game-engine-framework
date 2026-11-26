@@ -90,6 +90,18 @@ import {
 
 The root export intentionally exposes engine building blocks instead of forcing one game architecture. Use `GameEngine` for an integrated runtime, or compose lower-level modules directly for custom tools, simulations, editors, and tests.
 
+## Sprite Sheets
+
+Assets can be single images or a PixiJS spritesheet (texture atlas). Every frame in a sheet is registered under its frame name, so maps and entities use frame names exactly like image ids.
+
+```ts
+const assets: AssetConfig[] = [
+  { id: 'atlas', path: '/atlas/sprites.json', type: 'spritesheet' },
+];
+```
+
+One atlas means one request and one GPU texture, which lets PixiJS batch tiles and sprites instead of switching textures. `renderer.loadSpritesheet(path)` loads a sheet at runtime and returns its frame names.
+
 ## Lighting
 
 `engine.lighting` combines any number of light sources into one visible set and feeds it to Fog of War every frame. It only recalculates when a light is added, removed, moved, resized or toggled.

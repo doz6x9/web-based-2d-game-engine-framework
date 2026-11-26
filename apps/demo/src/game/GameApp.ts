@@ -67,40 +67,10 @@ const SCORE = {
 
 const rollBetween = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
 
-const ASSETS: AssetConfig[] = [
-  // Characters and objects
-  { id: 'hero', path: '/assets/hero.png' },
-  { id: 'goblin', path: '/assets/goblin.png' },
-  { id: 'torch', path: '/assets/torch.png' },
-  { id: 'gate', path: '/assets/gate.png' },
-  { id: 'gate_open', path: '/assets/gate_open.png' },
-  { id: 'chest', path: '/assets/chest.png' },
-  { id: 'chest_open', path: '/assets/chest_open.png' },
-  { id: 'key', path: '/assets/key.png' },
-  { id: 'potion', path: '/assets/potion.png' },
-  { id: 'mana_potion', path: '/assets/mana_potion.png' },
-  { id: 'sword', path: '/assets/sword.png' },
-  // Terrain
-  { id: 'grass', path: '/assets/textures/grass.png' },
-  { id: 'swamp', path: '/assets/textures/mud.png' },
-  { id: 'path', path: '/assets/textures/path.png' },
-  { id: 'forest', path: '/assets/textures/trees.png' },
-  { id: 'water', path: '/assets/textures/water.png' },
-  { id: 'tall_grass', path: '/assets/textures/junglegrass.png' },
-  { id: 'stone_floor', path: '/assets/textures/stone%20tile.png' },
-  { id: 'wood_floor', path: '/assets/textures/wood%20tile.png' },
-  { id: 'deep_water', path: '/assets/textures/deepocean.png' },
-  { id: 'snow', path: '/assets/textures/snow.png' },
-  { id: 'cave_floor', path: '/assets/textures/cave%20gravel.png' },
-  { id: 'sand', path: '/assets/textures/sand.png' },
-  { id: 'cave_wall', path: '/assets/textures/caveCliff2.png' },
-  { id: 'wall_horizontal', path: '/assets/textures/caveCliff2.png' },
-  { id: 'wall_vertical', path: '/assets/textures/caveCliff2.png' },
-  { id: 'wall_corner_tl', path: '/assets/textures/caveCliff2.png' },
-  { id: 'wall_corner_tr', path: '/assets/textures/caveCliff2.png' },
-  { id: 'wall_corner_bl', path: '/assets/textures/caveCliff2.png' },
-  { id: 'wall_corner_br', path: '/assets/textures/caveCliff2.png' },
-];
+// All tiles and sprites come from one texture atlas, packed at build time by
+// scripts/pack-atlas.mjs from the PNGs listed in art/atlas.json. One request
+// and one GPU texture instead of one per image, so PixiJS can batch draws.
+const ASSETS: AssetConfig[] = [{ id: 'atlas', path: '/atlas/sprites.json', type: 'spritesheet' }];
 
 /**
  * Dungeon demo built on the published engine package.
