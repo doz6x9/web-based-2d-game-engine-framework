@@ -32,6 +32,15 @@
     "wall_corner_tl": "art/sprites/textures/caveCliff2.png",
     "wall_corner_tr": "art/sprites/textures/caveCliff2.png",
     "wall_corner_bl": "art/sprites/textures/caveCliff2.png",
-    "wall_corner_br": "art/sprites/textures/caveCliff2.png"
+    "wall_corner_br": "art/sprites/textures/caveCliff2.png",
+    "flowers": "art/sprites/decor/flowers.png",
+    "grass_tuft": "art/sprites/decor/grass_tuft.png",
+    "rock": "art/sprites/decor/rock.png",
+    "mushroom": "art/sprites/decor/mushroom.png",
+    "bones": "art/sprites/decor/bones.png",
+    "crack": "art/sprites/decor/crack.png",
+    "rubble": "art/sprites/decor/rubble.png",
+    "banner": "art/sprites/decor/banner.png",
+    "ice_crystal": "art/sprites/decor/ice_crystal.png"
   }
 }
