@@ -29,7 +29,7 @@ The engine handles rendering, multi-layer JSON maps, camera and view fitting, A*
 |---|---|---|
 | `main` | The whole project: the engine package, the demo game, tests and docs | Run the demo or read the full project |
 | `develop` | The same as `main`, where new work lands first | Contribute |
-| `engineFramework` | Only the engine, at the top of the repository, with no demo | Start working on the engine itself |
+| `engineFramework` | Only the engine, at the top of the repository, plus a small starter game in `examples/starter` | Work on the engine, or start a new game without the npm package |
 | GitHub Packages: `@doz6x9/web-based-2d-game-engine-framework` | The built engine (ESM, CommonJS and TypeScript types) | Build your own game with `npm install` |
 
 The demo imports the engine by its package name, exactly like any other project would, so it always runs on what gets published.
@@ -103,6 +103,7 @@ Other scripts, run from the repository root:
 | `npm run build:engine` | Builds only the engine package (`packages/engine/dist`) |
 | `npm test` | Runs the engine's unit tests |
 | `npm run typecheck` | Type-checks every workspace |
+| `npm run example` | Starts the small starter game in `packages/engine/examples/starter`, built straight from the engine source |
 
 ## Repository layout
 
@@ -119,6 +120,7 @@ Other scripts, run from the repository root:
 │       │   ├── systems/        # LightingSystem
 │       │   ├── interaction/    # MouseHandler, KeyboardHandler
 │       │   └── editor/         # LevelEditor
+│       ├── examples/starter/   # Small starter game using the engine source (npm run example)
 │       ├── test/               # Vitest unit tests
 │       └── README.md           # full engine API guide
 ├── apps/

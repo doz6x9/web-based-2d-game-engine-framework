@@ -28,7 +28,9 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepack": "npm run build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "example": "vite examples/starter",
+    "example:check": "tsc -p examples/starter"
   },
   "keywords": [
     "2d",
