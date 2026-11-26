@@ -12,7 +12,15 @@ export class Hud {
   private mouseCoords = document.getElementById('mouseCoords');
   private inventoryList = document.getElementById('inventoryList');
   private inventoryPanel = document.getElementById('inventoryPanel');
+  private healthBar = document.getElementById('playerHealthBar');
+  private scoreValue = document.getElementById('scoreValue');
+  private keyCount = document.getElementById('keyCount');
+  private messageLog = document.getElementById('messageLog');
+  private endScreen = document.getElementById('endScreen');
+  private endTitle = document.getElementById('endTitle');
+  private endScore = document.getElementById('endScore');
   private queue: Array<{ speaker: string; text: string }> = [];
+  private static readonly LOG_LINES = 5;
 
   constructor() {
     this.dialogueBox?.addEventListener('click', () => this.next());
@@ -20,6 +28,7 @@ export class Hud {
       this.queue = [];
       this.next();
     });
+    document.getElementById('restartButton')?.addEventListener('click', () => window.location.reload());
     document.getElementById('inventoryButton')?.addEventListener('click', () => {
       if (!this.inventoryPanel) return;
       const open = this.inventoryPanel.style.display === 'block';
@@ -52,6 +61,34 @@ export class Hud {
 
   setHealth(current: number, max: number): void {
     if (this.playerHealth) this.playerHealth.textContent = `${current}/${max}`;
+    if (this.healthBar) this.healthBar.style.width = `${Math.max(0, (current / max) * 100)}%`;
+  }
+
+  setScore(score: number): void {
+    if (this.scoreValue) this.scoreValue.textContent = String(score).padStart(6, '0');
+  }
+
+  setKeys(count: number): void {
+    if (this.keyCount) this.keyCount.textContent = String(count);
+  }
+
+  /** Short line in the bottom-left log. Used for turn-by-turn events. */
+  log(text: string): void {
+    if (!this.messageLog) return;
+    const li = document.createElement('li');
+    li.textContent = text;
+    this.messageLog.appendChild(li);
+    while (this.messageLog.children.length > Hud.LOG_LINES) {
+      this.messageLog.firstElementChild?.remove();
+    }
+  }
+
+  showEndScreen(won: boolean, score: number): void {
+    if (!this.endScreen) return;
+    if (this.endTitle) this.endTitle.textContent = won ? 'YOU WIN!' : 'GAME OVER';
+    if (this.endScore) this.endScore.textContent = `FINAL SCORE ${String(score).padStart(6, '0')}`;
+    this.endScreen.classList.toggle('win', won);
+    this.endScreen.classList.add('open');
   }
 
   setPlayerCoords(x: number, y: number): void {

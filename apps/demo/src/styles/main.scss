@@ -356,3 +356,166 @@ body {
     background: #777;
   }
 }
+
+// ---------------------------------------------------------------- retro theme
+$retro-font: 'Press Start 2P', $font-mono;
+$retro-gold: #f8d030;
+
+body,
+.engine-button,
+.engine-panel,
+.hud-element {
+  font-family: $retro-font !important;
+  letter-spacing: 0.5px;
+}
+
+.engine-button,
+.engine-panel,
+.hud-element {
+  border-radius: 0 !important;
+  border: 3px solid #e0e0e0 !important;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6) !important;
+  background-color: #101018 !important;
+  font-size: 0.6rem !important;
+  text-transform: uppercase;
+}
+
+#gameCanvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.hud-overlay .health-display {
+  color: #f85858;
+  line-height: 1.8;
+
+  .hp-bar {
+    width: 140px;
+    height: 10px;
+    border: 2px solid #e0e0e0;
+    background: #401818;
+    margin: 4px 0 6px;
+  }
+
+  .hp-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: #f85858;
+    transition: width 0.2s steps(4);
+  }
+
+  .score-display {
+    color: $retro-gold;
+  }
+
+  .keys-display {
+    color: #78c8f8;
+  }
+}
+
+.dialogue-box .dialogue-text,
+.dialogue-box .dialogue-speaker {
+  font-size: 0.65rem !important;
+  line-height: 1.8 !important;
+}
+
+.message-log {
+  position: absolute;
+  left: 20px;
+  bottom: 70px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.55rem;
+  line-height: 1.9;
+  color: #e0e0e0;
+  text-shadow: 2px 2px 0 #000;
+  pointer-events: none;
+
+  li:last-child {
+    color: $retro-gold;
+  }
+}
+
+.instructions-text {
+  font-size: 0.55rem !important;
+}
+
+.end-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: rgba(0, 0, 0, 0.82);
+  pointer-events: auto;
+  z-index: 2000;
+  text-align: center;
+
+  &.open {
+    display: flex;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 2rem;
+    color: #f85858;
+    text-shadow: 4px 4px 0 #000;
+  }
+
+  &.win h1 {
+    color: $retro-gold;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #e0e0e0;
+  }
+
+  .engine-button {
+    padding: 14px 20px;
+    cursor: pointer;
+    color: #e0e0e0;
+  }
+}
+
+.hud-overlay .dev-tools-wrapper .dev-tools-toggle {
+  font-size: 0.55rem;
+  border-radius: 0;
+  border: 3px solid #e0e0e0;
+  background-color: #101018;
+}
+
+.hud-overlay .bag-button {
+  font-size: 1.3rem !important;
+}
+
+// Keep the stats panel to one thin row so it never covers the hero near the map's top edge.
+.hud-overlay .health-display {
+  top: 12px !important;
+  left: 12px !important;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px !important;
+  line-height: 1;
+  background-color: rgba(16, 16, 24, 0.85) !important;
+
+  .hp-bar {
+    width: 90px;
+    margin: 0;
+  }
+}
+
+.hud-overlay .level-display,
+.hud-overlay .menu-container {
+  top: 12px !important;
+}
+
+.hud-overlay .level-display {
+  padding: 6px 10px !important;
+  background-color: rgba(16, 16, 24, 0.85) !important;
+}

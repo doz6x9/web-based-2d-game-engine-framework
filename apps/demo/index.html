@@ -5,7 +5,10 @@
     <!-- Replaced local favicon with an inline SVG to prevent broken icons in preview -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB5PSIuOWVtIiBmb250LXNpemU9IjkwIj7wn46uPC90ZXh0Pjwvc3ZnPg==" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>2D Web-Based Game Engine</title>
+    <title>Dungeon Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app">
@@ -17,7 +20,20 @@
 
           <!-- Top Left: Health -->
           <div class="hud-element health-display">
-            HP: <span id="playerHealth">100/100</span>
+            HP <span id="playerHealth">100/100</span>
+            <div class="hp-bar"><div id="playerHealthBar" class="hp-bar-fill"></div></div>
+            <div class="score-display">SCORE <span id="scoreValue">0</span></div>
+            <div class="keys-display">KEYS <span id="keyCount">0</span></div>
+          </div>
+
+          <!-- Message log -->
+          <ul id="messageLog" class="message-log"></ul>
+
+          <!-- End screen -->
+          <div id="endScreen" class="end-screen">
+            <h1 id="endTitle">GAME OVER</h1>
+            <p id="endScore"></p>
+            <button id="restartButton" class="engine-button">PLAY AGAIN</button>
           </div>
 
           <!-- Top Center: Level Display -->
@@ -37,7 +53,7 @@
 
           <!-- Bottom Center: Instructions -->
           <div class="instructions-text">
-            L-Click: Interact | R-Click: Move
+            L-CLICK: INTERACT &nbsp; R-CLICK: MOVE
           </div>
 
           <!-- Bottom Right: Inventory Bag -->

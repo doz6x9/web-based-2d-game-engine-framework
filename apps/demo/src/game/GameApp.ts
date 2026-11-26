@@ -33,6 +33,14 @@ interface DungeonObject extends IEntity {
   health: number;
   /** Cell type under a closed door, restored when it opens. */
   originalCell?: CellType;
+  /** Enemies wake up when they see the player, then chase every turn. */
+  awake?: boolean;
+}
+
+/** Floating combat text, e.g. "-12" over a goblin. */
+interface FloatingText {
+  node: PIXI.Text;
+  age: number;
 }
 
 const LEVELS: Record<number, string> = {
@@ -40,8 +48,24 @@ const LEVELS: Record<number, string> = {
   2: '/maps/level2.json',
 };
 
-const PLAYER_LIGHT_RADIUS = 10;
+const PLAYER_LIGHT_RADIUS = 7;
 const PLAYER_MAX_HEALTH = 100;
+/** How far (in cells) a goblin can notice a lit player. */
+const ENEMY_SIGHT = 7;
+const POTION_HEAL = 30;
+
+const SCORE = {
+  item: 10,
+  key: 25,
+  chest: 50,
+  door: 20,
+  goblin: 100,
+  boss: 500,
+  levelClear: 250,
+  healthBonusPerPoint: 5,
+};
+
+const rollBetween = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
 
 const ASSETS: AssetConfig[] = [
   // Characters and objects
@@ -95,6 +119,12 @@ export class GameApp {
   private playerRenderPos = new Vector(1, 1);
   private playerHealth = PLAYER_MAX_HEALTH;
   private inventory: Map<string, string> = new Map(); // id -> display name
+  private score = 0;
+  /** Potions picked up at full health; drunk automatically when HP runs low. */
+  private potions = 0;
+  private turn = 0;
+  private gameOver = false;
+  private floatingTexts: FloatingText[] = [];
 
   // Movement
   private path: Vector[] = [];
@@ -110,6 +140,9 @@ export class GameApp {
     const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
     if (!canvas) throw new Error('Canvas element #gameCanvas not found');
 
+    // Retro look: keep pixel art crisp instead of smoothing it when scaled.
+    PIXI.TextureSource.defaultOptions.scaleMode = 'nearest';
+
     this.engine.on('mapLoaded', (mapData) => this.onMapLoaded(mapData));
     this.engine.on('update', (dt) => this.onUpdate(dt));
     this.engine.on('beforeRender', () => this.onBeforeRender());
@@ -121,8 +154,11 @@ export class GameApp {
 
     this.setupButtons();
     this.hud.setHealth(this.playerHealth, PLAYER_MAX_HEALTH);
+    this.hud.setScore(this.score);
+    this.hud.setKeys(0);
     this.hud.setInventory([]);
-    this.hud.say('System', 'Right-click to move. Left-click doors, chests, items and goblins to interact.');
+    this.hud.log('Find the keys, open the gates, reach the exit.');
+    this.hud.log('R-click to move. L-click to act.');
   }
 
   getEngine(): GameEngine {
@@ -156,16 +192,21 @@ export class GameApp {
 
   private async goToLevel(level: number): Promise<void> {
     const url = LEVELS[level];
+    this.addScore(SCORE.levelClear, this.playerTile);
     if (!url) {
-      this.hud.say('System', 'Congratulations! You cleared every level.');
+      this.addScore(this.playerHealth * SCORE.healthBonusPerPoint);
+      this.gameOver = true;
+      this.hud.log('You escaped the dungeon!');
+      this.hud.showEndScreen(true, this.score);
       return;
     }
     this.transitioning = true;
     try {
       this.level = level;
+      this.clearFloatingTexts();
       this.engine.clear();
       await this.engine.loadMap(url);
-      this.hud.say('System', `Welcome to level ${level}!`);
+      this.hud.log(`Level ${level}. The air grows colder...`);
     } finally {
       this.transitioning = false;
     }
@@ -245,7 +286,7 @@ export class GameApp {
   // ---------------------------------------------------------------- input
 
   private onGridClick(x: number, y: number, button: 'left' | 'right'): void {
-    if (this.transitioning || this.playerHealth <= 0) return;
+    if (this.transitioning || this.gameOver) return;
     const target = new Vector(x, y);
 
     if (button === 'right') {
@@ -267,7 +308,7 @@ export class GameApp {
     if (approach && this.moveTo(approach)) {
       this.pendingInteraction = object;
     } else {
-      this.hud.say('System', "You can't reach that from here.");
+      this.hud.log("You can't reach that.");
     }
   }
 
@@ -319,7 +360,7 @@ export class GameApp {
     });
     for (const id of ['saveButton', 'loadButton', 'muteButton']) {
       document.getElementById(id)?.addEventListener('click', () => {
-        this.hud.say('System', 'This feature is not part of the demo yet.');
+        this.hud.log('Not in the demo yet.');
       });
     }
   }
@@ -327,7 +368,8 @@ export class GameApp {
   // ------------------------------------------------------------ game loop
 
   private onUpdate(deltaTime: number): void {
-    if (this.path.length < 2) return;
+    this.updateFloatingTexts(deltaTime);
+    if (this.gameOver || this.path.length < 2) return;
 
     const from = this.path[this.pathIndex];
     const to = this.path[this.pathIndex + 1];
@@ -355,7 +397,17 @@ export class GameApp {
       this.playerRenderPos.y = to.y;
       this.hud.setPlayerCoords(to.x, to.y);
       this.pickUpItemsAt(to);
-      if (this.pathIndex >= this.path.length - 1) this.finishMove();
+      this.endTurn();
+      if (this.gameOver) return;
+      if (this.pathIndex >= this.path.length - 1) {
+        this.finishMove();
+      } else if (this.enemyAdjacent()) {
+        // Stop walking when a goblin closes in, like a classic roguelike.
+        this.path = [];
+        this.selectedCell = null;
+        this.pendingInteraction = null;
+        this.hud.log('A goblin blocks your way!');
+      }
     } else {
       this.playerRenderPos.x = from.x + (to.x - from.x) * this.moveProgress;
       this.playerRenderPos.y = from.y + (to.y - from.y) * this.moveProgress;
@@ -419,7 +471,7 @@ export class GameApp {
 
     const keyId = door.data.keyId;
     if (keyId && !this.inventory.has(keyId)) {
-      this.hud.say('System', 'The gate is locked. You need a key.');
+      this.hud.log('Locked. You need a key.');
       return;
     }
 
@@ -435,27 +487,46 @@ export class GameApp {
       }
     }
 
+    this.addScore(SCORE.door, door.position);
     if (door.data.isLevelExit) {
-      this.hud.say('System', 'The exit opens. Click it again to descend.');
+      this.hud.log('The exit opens. Click it to descend.');
     } else {
-      this.hud.say('System', keyId ? `You unlock the gate with the ${this.inventory.get(keyId)}.` : 'The gate swings open.');
+      this.hud.log(keyId ? `Unlocked with ${this.inventory.get(keyId)}.` : 'The gate swings open.');
     }
+    this.endTurn();
   }
 
   private openChest(chest: DungeonObject): void {
     if (chest.open) {
-      this.hud.say('System', 'The chest is empty.');
+      this.hud.log('The chest is empty.');
       return;
     }
     chest.open = true;
     this.setTexture(chest, 'chest_open');
+    this.addScore(SCORE.chest, chest.position);
     const contents = chest.data.contents ?? [];
-    contents.forEach((item) => this.inventory.set(item.id, item.name));
+    if (contents.length === 0) this.hud.log('The chest is empty.');
+    contents.forEach((item) => this.gainItem(item.id, item.name, item.type));
+    this.endTurn();
+  }
+
+  /** Potions heal on the spot; everything else goes into the bag. */
+  private gainItem(id: string, name: string, type?: string): void {
+    if ((type ?? '').toUpperCase() === 'CONSUMABLE' || id.includes('potion')) {
+      this.addScore(SCORE.item);
+      if (this.playerHealth < PLAYER_MAX_HEALTH) {
+        this.drinkPotion(name);
+      } else {
+        this.potions++;
+        this.refreshInventory();
+        this.hud.log(`Got ${name}! Saved for later.`);
+      }
+      return;
+    }
+    this.inventory.set(id, name);
     this.refreshInventory();
-    this.hud.say(
-      'System',
-      contents.length ? `You found: ${contents.map((c) => c.name).join(', ')}.` : 'The chest is empty.'
-    );
+    this.addScore(id.includes('key') ? SCORE.key : SCORE.item);
+    this.hud.log(`Got ${name}!`);
   }
 
   private pickUpItemsAt(tile: Vector): void {
@@ -465,36 +536,159 @@ export class GameApp {
 
   private pickUp(item: DungeonObject): void {
     const id = item.data.id ?? item.id;
-    const name = item.data.name ?? id;
-    this.inventory.set(id, name);
     this.removeObject(item);
-    this.refreshInventory();
-    this.hud.say('System', `Picked up ${name}.`);
+    this.gainItem(id, item.data.name ?? id, (item.data as { item_type?: string }).item_type);
   }
 
   private fight(enemy: DungeonObject): void {
+    enemy.awake = true;
     const hasSword = [...this.inventory.keys()].some((id) => id.includes('sword'));
-    const damage = hasSword ? 50 : 20;
+    const critical = Math.random() < 0.1;
+    let damage = hasSword ? rollBetween(28, 38) : rollBetween(12, 18);
+    if (critical) damage *= 2;
     enemy.health -= damage;
+    this.floatText(enemy.position, `-${damage}`, critical ? 0xf8d030 : 0xffffff);
+    this.hud.log(`${critical ? 'CRITICAL! ' : ''}You hit ${this.enemyName(enemy).toLowerCase()} for ${damage}.`);
 
     if (enemy.health <= 0) {
+      const isBoss = (enemy.data.health ?? 0) >= 150;
       this.removeObject(enemy);
-      this.hud.say('System', `${enemy.id} is defeated!`);
-      return;
+      this.addScore(isBoss ? SCORE.boss : SCORE.goblin, enemy.position);
+      this.hud.log(`${this.enemyName(enemy)} is defeated!`);
     }
+    this.endTurn();
+  }
 
-    const counter = enemy.data.attack ?? 10;
-    this.playerHealth = Math.max(0, this.playerHealth - counter);
-    this.hud.setHealth(this.playerHealth, PLAYER_MAX_HEALTH);
-    this.hud.say('System', `You hit ${enemy.id} for ${damage}. It strikes back for ${counter}.`);
+  // ------------------------------------------------------------ enemy turn
 
-    if (this.playerHealth <= 0) {
-      this.hud.say('System', 'Game over. Reload the page to try again.');
-      this.engine.stopGameLoop();
+  /** Runs once per player action: every goblin that has seen the player acts. */
+  private endTurn(): void {
+    if (this.gameOver) return;
+    this.turn++;
+    for (const enemy of [...this.objects.values()]) {
+      if (enemy.kind !== 'ENEMY' || !this.objects.has(enemy.id)) continue;
+      const distance = enemy.position.manhattanDistance(this.playerTile);
+
+      if (!enemy.awake) {
+        const seesPlayer = distance <= ENEMY_SIGHT && this.engine.lighting.isLit(enemy.position.x, enemy.position.y);
+        if (!seesPlayer) continue;
+        enemy.awake = true;
+        this.floatText(enemy.position, '!', 0xf85858);
+        this.hud.log(`${this.enemyName(enemy)} spots you!`);
+        continue; // waking up uses its turn
+      }
+
+      if (distance === 1) {
+        this.enemyAttack(enemy);
+        if (this.gameOver) return;
+      } else {
+        this.enemyStep(enemy);
+      }
     }
   }
 
+  private enemyAttack(enemy: DungeonObject): void {
+    if (Math.random() < 0.3) {
+      this.floatText(this.playerTile, 'MISS', 0xa0a0a0);
+      this.hud.log(`${this.enemyName(enemy)} misses.`);
+      return;
+    }
+    const base = enemy.data.attack ?? 10;
+    const damage = rollBetween(Math.ceil(base * 0.5), base);
+    this.playerHealth = Math.max(0, this.playerHealth - damage);
+    this.hud.setHealth(this.playerHealth, PLAYER_MAX_HEALTH);
+    this.floatText(this.playerTile, `-${damage}`, 0xf85858);
+    this.hud.log(`${this.enemyName(enemy)} hits you for ${damage}.`);
+
+    if (this.playerHealth > 0 && this.playerHealth <= 35 && this.potions > 0) {
+      this.potions--;
+      this.drinkPotion('health potion');
+      this.refreshInventory();
+    }
+
+    if (this.playerHealth <= 0) {
+      this.gameOver = true;
+      this.path = [];
+      this.hud.log('You have fallen...');
+      this.hud.showEndScreen(false, this.score);
+    }
+  }
+
+  /** Move one cell along the engine's A* path toward the player. */
+  private enemyStep(enemy: DungeonObject): void {
+    const next = this.engine.pathfinder.findPath(enemy.position.clone(), this.playerTile.clone())[0];
+    if (!next || next.equals(this.playerTile) || this.objectAt(next.x, next.y)) return;
+    enemy.position.x = next.x;
+    enemy.position.y = next.y;
+  }
+
+  private enemyAdjacent(): boolean {
+    for (const object of this.objects.values()) {
+      if (object.kind === 'ENEMY' && object.awake && object.position.manhattanDistance(this.playerTile) === 1) return true;
+    }
+    return false;
+  }
+
+  private enemyName(enemy: DungeonObject): string {
+    return (enemy.data.health ?? 0) >= 150 ? 'The goblin chief' : 'A goblin';
+  }
+
+  // ------------------------------------------------------- score and effects
+
+  private addScore(points: number, at?: Vector): void {
+    this.score += points;
+    this.hud.setScore(this.score);
+    if (at) this.floatText(at, `+${points}`, 0xf8d030, 14);
+  }
+
+  private floatText(at: Vector, text: string, color: number, offsetY = 0): void {
+    const tile = this.engine.renderer.tileSize;
+    const node = new PIXI.Text({
+      text,
+      style: {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: 10,
+        fill: color,
+        stroke: { color: 0x000000, width: 3 },
+      },
+    });
+    node.anchor.set(0.5, 1);
+    node.x = at.x * tile + tile / 2;
+    node.y = at.y * tile - offsetY;
+    this.engine.renderer.getSpriteContainer().addChild(node);
+    this.floatingTexts.push({ node, age: 0 });
+  }
+
+  private updateFloatingTexts(deltaTime: number): void {
+    this.floatingTexts = this.floatingTexts.filter((f) => {
+      f.age += deltaTime;
+      f.node.y -= deltaTime * 0.02;
+      f.node.alpha = Math.max(0, 1 - f.age / 900);
+      if (f.age >= 900) {
+        f.node.destroy();
+        return false;
+      }
+      return true;
+    });
+  }
+
+  private clearFloatingTexts(): void {
+    this.floatingTexts.forEach((f) => f.node.destroy());
+    this.floatingTexts = [];
+  }
+
+  private drinkPotion(name = 'potion'): void {
+    const before = this.playerHealth;
+    this.playerHealth = Math.min(PLAYER_MAX_HEALTH, this.playerHealth + POTION_HEAL);
+    this.hud.setHealth(this.playerHealth, PLAYER_MAX_HEALTH);
+    this.floatText(this.playerTile, `+${this.playerHealth - before}`, 0x58f858);
+    this.hud.log(`You drink the ${name.toLowerCase()}. +${this.playerHealth - before} HP`);
+  }
+
   private refreshInventory(): void {
-    this.hud.setInventory([...this.inventory.values()]);
+    const items = [...this.inventory.values()];
+    if (this.potions > 0) items.push(`Health Potion x${this.potions}`);
+    this.hud.setInventory(items);
+    this.hud.setKeys([...this.inventory.keys()].filter((id) => id.includes('key')).length);
   }
 }
