@@ -5,11 +5,16 @@
  */
 
 export interface TileDefinition {
-  cost: number; // Movement cost for pathfinding
-  walkable: boolean; // Can entities walk on this tile
-  sprite: string; // Sprite asset ID
-  name: string; // Human-readable name
-  color: number; // Fallback color if sprite unavailable
+  /** Movement cost for A*. Ignored (treated as Infinity) when the tile is not walkable. */
+  cost: number;
+  /** Whether entities can walk on the tile. Unwalkable tiles also block sight. */
+  walkable: boolean;
+  /** Texture id or sprite sheet frame name used to draw the tile. */
+  sprite: string;
+  /** Human-readable name. */
+  name: string;
+  /** Fill colour (0xRRGGBB) used when the sprite is not loaded. */
+  color: number;
 }
 
 /**
@@ -31,9 +36,15 @@ export enum CellType {
   FOREST = 11,
 }
 
+/** Alias of {@link CellType}, kept for code that uses the older name. */
 export const TileType = CellType;
+/** Alias of {@link CellType}. */
 export type TileType = CellType;
 
+/**
+ * The single source of truth for tiles: walkability, movement cost, sprite and fallback colour
+ * for every tile id. The grid, the renderer and the pathfinder all read from here.
+ */
 export class TileRegistry {
   private static tiles: Map<number, TileDefinition> = new Map();
   private static initialized = false;

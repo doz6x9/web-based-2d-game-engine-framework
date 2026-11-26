@@ -16,12 +16,19 @@ export enum EditorTool {
  * Editor state
  */
 export interface EditorState {
+  /** The active editing tool. */
   currentTool: EditorTool;
+  /** Tile id painted by the paint tool. */
   currentTile: string;
+  /** Index of the map layer being edited. */
   currentLayer: number;
+  /** Id of the selected map object, or null. */
   selectedObject: string | null;
+  /** Editor zoom factor. */
   zoom: number;
+  /** Horizontal pan offset of the editor view, in pixels. */
   panX: number;
+  /** Vertical pan offset of the editor view, in pixels. */
   panY: number;
 }
 

@@ -13,7 +13,9 @@ import { ParticleSystem } from './render/Particles';
 import { LightingSystem } from './systems/LightingSystem';
 import * as PIXI from 'pixi.js';
 
+/** Options that control how the engine behaves while it runs. Pass them to the constructor, `init` or `initWithOptions`. */
 export interface EngineLifecycleOptions {
+  /** Start the game loop as soon as `init` finishes. Defaults to true. */
   autoStart?: boolean;
   /** Draw the clicked cell's coordinates on the canvas (left and right clicks are coloured differently). */
   showMouseCoordinates?: boolean;
@@ -37,25 +39,39 @@ export interface EngineLifecycleOptions {
   layerNames?: MapLayerNames;
 }
 
+/** Everything {@link GameEngine.initWithOptions} needs, in one object. */
 export interface EngineInitOptions extends EngineLifecycleOptions {
+  /** The canvas PixiJS draws into. */
   canvas: HTMLCanvasElement;
+  /** Canvas width in pixels (the maximum when `fitCanvasToMap` is on). */
   width: number;
+  /** Canvas height in pixels (the maximum when `fitCanvasToMap` is on). */
   height: number;
+  /** Textures or sprite sheets to load before the first map. */
   assets?: AssetConfig[];
+  /** URL of a JSON map to load once the renderer is ready. */
   initialMapUrl?: string;
 }
 
+/** Events emitted by {@link GameEngine}, with their callback arguments. */
 export interface EngineEventMap {
+  /** A map finished loading. Receives the raw JSON, including `objects`. */
   mapLoaded: [mapData: MapJSON];
   /** The canvas or camera view changed size (e.g. fitted to a new map). */
   viewResized: [width: number, height: number];
+  /** The canvas was clicked. Receives the grid cell and which button was used. */
   gridClick: [x: number, y: number, button: 'left' | 'right'];
+  /** The mouse moved over a new grid cell. */
   gridHover: [x: number, y: number];
+  /** Once per frame, after entities update. `deltaTime` is in milliseconds. */
   update: [deltaTime: number];
+  /** Once per frame, before anything is drawn. A good place to move the camera. */
   beforeRender: [];
+  /** Once per frame, after the map, fog, entities and particles are drawn. */
   afterRender: [renderer: Renderer];
 }
 
+/** A listener for an event whose arguments are `Args`. */
 export type EventCallback<Args extends unknown[] = unknown[]> = (...args: Args) => void;
 
 /**
@@ -63,21 +79,31 @@ export type EventCallback<Args extends unknown[] = unknown[]> = (...args: Args) 
  * The engine only cares about position, updating, and rendering.
  */
 export interface IEntity {
+  /** Unique id, used by {@link GameEngine.getEntity} and {@link GameEngine.removeEntity}. */
   id: string;
+  /** Grid cell the entity stands on. Can be fractional while it moves between cells. */
   position: Vector;
+  /** Texture id. When set, {@link GameEngine.addEntity} creates the sprite automatically. */
   spriteName?: string;
+  /** The PixiJS sprite that draws the entity. Created by the engine or supplied by the game. */
   pixiSprite?: PIXI.Sprite | null;
+  /** Inactive entities are neither updated nor drawn. */
   isActive: boolean;
+  /** Called once per frame while the entity is active. */
   update(deltaTime: number): void;
+  /** Optional custom drawing, called every frame after the sprite is positioned. */
   render?(renderer: Renderer): void;
-  onInteract?(): void; // Generic interaction hook for game logic
+  /** Optional hook for game code that wants a generic "use" action. */
+  onInteract?(): void;
 }
 
 /**
  * Asset configuration for engine initialization
  */
 export interface AssetConfig {
+  /** Name the texture is registered under (for sprite sheets, ignored: frame names are used). */
   id: string;
+  /** URL of the image or sprite sheet JSON. */
   path: string;
   /**
    * 'image' (default) registers one texture under `id`.
@@ -93,6 +119,7 @@ export interface AssetConfig {
 export class EventEmitter<TEvents extends { [K in keyof TEvents]: unknown[] } = Record<string, unknown[]>> {
   private listeners: Map<keyof TEvents & string, Array<EventCallback<any[]>>> = new Map();
 
+  /** Subscribe to an event. */
   on<K extends keyof TEvents & string>(event: K, callback: EventCallback<TEvents[K]>): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
@@ -100,6 +127,7 @@ export class EventEmitter<TEvents extends { [K in keyof TEvents]: unknown[] } = 
     this.listeners.get(event)!.push(callback as EventCallback<any[]>);
   }
 
+  /** Unsubscribe a callback previously passed to {@link EventEmitter.on}. */
   off<K extends keyof TEvents & string>(event: K, callback: EventCallback<TEvents[K]>): void {
     const callbacks = this.listeners.get(event);
     if (!callbacks) return;
@@ -107,12 +135,14 @@ export class EventEmitter<TEvents extends { [K in keyof TEvents]: unknown[] } = 
     if (index !== -1) callbacks.splice(index, 1);
   }
 
+  /** Call every listener of an event. */
   emit<K extends keyof TEvents & string>(event: K, ...args: TEvents[K]): void {
     const callbacks = this.listeners.get(event);
     if (!callbacks) return;
     callbacks.forEach(cb => cb(...args));
   }
 
+  /** Remove every listener of every event. */
   removeAllListeners(): void {
     this.listeners.clear();
   }
@@ -124,16 +154,27 @@ export class EventEmitter<TEvents extends { [K in keyof TEvents]: unknown[] } = 
  * Game-specific logic is entirely delegated to the consuming application.
  */
 export class GameEngine extends EventEmitter<EngineEventMap> {
+  /** The loaded map, or null before the first map loads. */
   public map: GameMap | null = null;
+  /** Walkability and movement cost of every cell, built from the map's ground and collision layers. */
   public grid: Grid;
+  /** Draws the map, fog, entities and particles with PixiJS. */
   public renderer: Renderer;
+  /** Turns mouse clicks into grid cells. Created in `init`. */
   public mouseHandler!: MouseHandler;
+  /** Tracks keyboard state and key events. */
   public keyboardHandler: KeyboardHandler;
+  /** A* pathfinder over {@link GameEngine.grid}. */
   public pathfinder: AStarPathfinder;
+  /** Field of view (raycasting or shadowcasting) over {@link GameEngine.grid}. */
   public fov: FieldOfView;
-  public fogOfWar!: FogOfWar; // Fog of War is a core rendering/visibility component
+  /** Explored and visible state of every cell. Recreated for each map. */
+  public fogOfWar!: FogOfWar;
+  /** Flood fill over {@link GameEngine.grid}, used to reveal rooms. */
   public floodFill: FloodFill;
+  /** Named animations shared by entities. */
   public animationLibrary: AnimationLibrary;
+  /** Particle emitters, updated and drawn every frame. */
   public particleSystem: ParticleSystem;
   /** Combines light sources into the visible set used by Fog of War. */
   public lighting: LightingSystem;
@@ -141,7 +182,8 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
   private entities: Map<string, IEntity> = new Map();
   private spawnPoint: Vector | null = null;
   private gameTime: number = 0;
-  public isRunning: boolean = false; // Made public for game to control
+  /** True while the game loop is running. Use {@link GameEngine.startGameLoop} and {@link GameEngine.stopGameLoop} to change it. */
+  public isRunning: boolean = false;
   private boundGameLoop = this.pixiGameLoop.bind(this);
   private lifecycleOptions: Required<EngineLifecycleOptions> = {
     autoStart: true,
@@ -217,6 +259,10 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     }
   }
 
+  /**
+   * Initialize the engine from one options object: create the renderer on the canvas,
+   * load assets, then load the first map if `initialMapUrl` is given.
+   */
   async initWithOptions(options: EngineInitOptions): Promise<void> {
     await this.init(
       options.canvas,
@@ -477,12 +523,14 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     this.update(this.renderer.getApp().ticker.deltaMS);
   }
 
+  /** Start calling update and render on every PixiJS tick. Does nothing if already running. */
   public startGameLoop(): void {
     if (this.isRunning) return;
     this.isRunning = true;
     this.renderer.getApp().ticker.add(this.boundGameLoop);
   }
 
+  /** Stop the game loop. The last frame stays on the canvas. */
   public stopGameLoop(): void {
     this.isRunning = false;
     this.renderer.getApp().ticker.remove(this.boundGameLoop);
@@ -504,6 +552,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     }
   }
 
+  /** Remove an entity and destroy its sprite. */
   public removeEntity(entityId: string): void {
     const entity = this.entities.get(entityId);
     if (entity) {
@@ -516,10 +565,12 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     }
   }
 
+  /** Returns The entity, or undefined if none has that id. */
   public getEntity(entityId: string): IEntity | undefined {
     return this.entities.get(entityId);
   }
 
+  /** Returns Every registered entity, in insertion order. */
   public getAllEntities(): IEntity[] {
     return Array.from(this.entities.values());
   }
@@ -531,6 +582,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     this.renderer.clearMapCache();
   }
 
+  /** Stop the loop, remove all entities, listeners and input handlers, and destroy the PixiJS application. */
   public destroy(): void {
     this.stopGameLoop();
     this.clear();
