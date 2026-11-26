@@ -308,12 +308,25 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
 
   /**
    * Reveal the room that contains `start` (every walkable cell reachable from it
-   * without crossing a wall or closed door) by marking it explored in Fog of War.
+   * without crossing a wall or closed door), plus the walls around it, by marking
+   * it explored in Fog of War.
    * Call it when a door opens, passing the cell just beyond the door.
    * Returns the revealed cells.
    */
-  public revealRoom(start: Vector, maxCells: number = 400): Set<string> {
+  public revealRoom(start: Vector, maxCells: number = 400, includeWalls: boolean = true): Set<string> {
     const cells = this.floodFill.fillRoom(start, maxCells);
+    if (includeWalls) {
+      // Also reveal the walls around the room so its outline shows, not just the floor.
+      for (const key of Array.from(cells)) {
+        const [x, y] = key.split(',').map(Number);
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const cell = this.grid.getCell(x + dx, y + dy);
+            if (cell && !cell.walkable) cells.add(`${x + dx},${y + dy}`);
+          }
+        }
+      }
+    }
     this.fogOfWar?.markMultipleExplored(cells);
     this.lighting.markDirty();
     return cells;

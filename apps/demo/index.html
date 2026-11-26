@@ -14,6 +14,7 @@
     <div id="app">
       <div class="game-container">
         <!-- Scale the canvas down slightly via CSS to fit typical previews nicely, keeps pixel aspect ratio -->
+        <div class="game-stage">
         <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
         <div id="hudOverlay" class="hud-overlay">
@@ -26,18 +27,12 @@
             <div class="keys-display">KEYS <span id="keyCount">0</span></div>
           </div>
 
-          <!-- Message log -->
-          <ul id="messageLog" class="message-log"></ul>
-
           <!-- End screen -->
           <div id="endScreen" class="end-screen">
             <h1 id="endTitle">GAME OVER</h1>
             <p id="endScore"></p>
             <button id="restartButton" class="engine-button">PLAY AGAIN</button>
           </div>
-
-          <!-- Top Center: Level Display -->
-          <div id="levelDisplay" class="hud-element level-display">Level 1</div>
 
           <!-- Top Right: Collapsible Menu -->
           <div class="menu-container">
@@ -49,11 +44,6 @@
               <button id="loadButton" class="engine-button btn-primary">Load</button>
               <button id="skipDialogueButton" class="engine-button btn-warning">Skip</button>
             </div>
-          </div>
-
-          <!-- Bottom Center: Instructions -->
-          <div class="instructions-text">
-            L-CLICK: INTERACT &nbsp; R-CLICK: MOVE
           </div>
 
           <!-- Bottom Right: Inventory Bag -->
@@ -72,6 +62,30 @@
           </div>
 
         </div>
+        </div>
+
+        <!-- Right side panel: kept off the map so the text stays readable -->
+        <aside class="side-panel">
+          <section class="level-section">
+            <h2>LEVEL</h2>
+            <p id="levelDisplay">Level 1</p>
+          </section>
+          <section>
+            <h2>QUEST</h2>
+            <p>Find the keys, open the gates and reach the exit.</p>
+          </section>
+          <section>
+            <h2>CONTROLS</h2>
+            <ul class="controls-list">
+              <li><span class="key">R-CLICK</span> Move</li>
+              <li><span class="key">L-CLICK</span> Open, fight, pick up</li>
+            </ul>
+          </section>
+          <section class="log-section">
+            <h2>LOG</h2>
+            <ul id="messageLog" class="message-log"></ul>
+          </section>
+        </aside>
       </div>
 
       <!-- Dialogue Box -->

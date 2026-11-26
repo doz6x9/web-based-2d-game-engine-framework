@@ -14,6 +14,12 @@ export interface Light {
   radius: number;
   /** Disabled lights are ignored. Defaults to true. */
   enabled?: boolean;
+  /**
+   * When true, the light stays dark until its own cell has been explored
+   * (seen by another light or revealed by flood fill). Use it for torches in
+   * rooms the player hasn't found yet, so they don't give the room away.
+   */
+  hiddenUntilExplored?: boolean;
 }
 
 /**
@@ -83,12 +89,12 @@ export class LightingSystem {
    * Returns true when a recalculation happened.
    */
   update(fogOfWar?: FogOfWar): boolean {
-    const signature = this.computeSignature();
+    const signature = this.computeSignature(fogOfWar);
     if (!this.dirty && signature === this.lastSignature) return false;
 
     const combined = new Set<string>();
     for (const light of this.lights.values()) {
-      if (light.enabled === false || light.radius <= 0) continue;
+      if (!this.isActive(light, fogOfWar)) continue;
       const origin = new Vector(Math.round(light.position.x), Math.round(light.position.y));
       this.fov.calculateFOV(origin, light.radius).forEach((key) => combined.add(key));
     }
@@ -100,11 +106,19 @@ export class LightingSystem {
     return true;
   }
 
-  private computeSignature(): string {
+  private isActive(light: Light, fogOfWar?: FogOfWar): boolean {
+    if (light.enabled === false || light.radius <= 0) return false;
+    if (light.hiddenUntilExplored && fogOfWar) {
+      return fogOfWar.isExplored(Math.round(light.position.x), Math.round(light.position.y));
+    }
+    return true;
+  }
+
+  private computeSignature(fogOfWar?: FogOfWar): string {
     const parts: string[] = [];
     for (const light of this.lights.values()) {
       parts.push(
-        `${light.id}:${Math.round(light.position.x)},${Math.round(light.position.y)},${light.radius},${light.enabled !== false}`
+        `${light.id}:${Math.round(light.position.x)},${Math.round(light.position.y)},${light.radius},${this.isActive(light, fogOfWar)}`
       );
     }
     return parts.join('|');

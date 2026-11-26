@@ -20,7 +20,7 @@ export class Hud {
   private endTitle = document.getElementById('endTitle');
   private endScore = document.getElementById('endScore');
   private queue: Array<{ speaker: string; text: string }> = [];
-  private static readonly LOG_LINES = 5;
+  private static readonly LOG_LINES = 12;
 
   constructor() {
     this.dialogueBox?.addEventListener('click', () => this.next());

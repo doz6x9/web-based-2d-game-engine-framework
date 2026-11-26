@@ -127,8 +127,7 @@ export class GameApp {
     this.hud.setScore(this.score);
     this.hud.setKeys(0);
     this.hud.setInventory([]);
-    this.hud.log('Find the keys, open the gates, reach the exit.');
-    this.hud.log('R-click to move. L-click to act.');
+    this.hud.log('Your quest begins.');
   }
 
   getEngine(): GameEngine {
@@ -238,7 +237,13 @@ export class GameApp {
     this.objects.set(id, object);
 
     if (object.kind === 'LIGHT_SOURCE') {
-      this.engine.lighting.addLight({ id: `light:${id}`, position: object.position, radius: data.radius ?? 4 });
+      // Torches stay dark until their room is found, so they don't reveal it early.
+      this.engine.lighting.addLight({
+        id: `light:${id}`,
+        position: object.position,
+        radius: data.radius ?? 4,
+        hiddenUntilExplored: true,
+      });
     }
     this.engine.lighting.markDirty();
   }
@@ -458,15 +463,18 @@ export class GameApp {
 
     door.open = true;
     this.setTexture(door, 'gate_open');
-    this.engine.grid.setCellType(door.position.x, door.position.y, door.originalCell ?? CellType.STONE_FLOOR);
-    this.engine.lighting.markDirty();
 
-    // Reveal the room behind the door with the engine's flood fill.
+    // Reveal the room behind the door with the engine's flood fill. This runs
+    // while the door cell is still solid, so the fill stays inside that room
+    // and stops at its walls instead of leaking back out through the doorway.
     for (const n of this.engine.grid.getNeighbors(door.position.x, door.position.y)) {
       if (!this.engine.fogOfWar.isExplored(n.x, n.y) && this.engine.grid.getCell(n.x, n.y)?.walkable) {
         this.engine.revealRoom(n);
       }
     }
+
+    this.engine.grid.setCellType(door.position.x, door.position.y, door.originalCell ?? CellType.STONE_FLOOR);
+    this.engine.lighting.markDirty();
 
     this.addScore(SCORE.door, door.position);
     if (door.data.isLevelExit) {
