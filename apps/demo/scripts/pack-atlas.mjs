@@ -2,7 +2,7 @@
 //
 // Why: one atlas means one network request and one GPU texture instead of
 // dozens, so the renderer can batch tiles and sprites without switching
-// textures. The individual PNGs stay as the source art; edit those, and this
+// textures. The individual PNGs in art/sprites stay as the source art; edit those, and this
 // script rebuilds the atlas before every `dev` and `build`.
 //
 // Each frame is resampled to the tile size (box filter when shrinking,

@@ -19,6 +19,12 @@ export class FogOfWar {
   private visibleCells: Set<string> = new Set();
   private width: number;
   private height: number;
+  private _version = 0;
+
+  /** Increases every time any cell's fog state changes, so renderers can skip redraws. */
+  get version(): number {
+    return this._version;
+  }
 
   constructor(
     width: number,
@@ -39,6 +45,7 @@ export class FogOfWar {
    * Update fog of war based on current FOV
    */
   updateFromFOV(fovCells: Set<string>): void {
+    this._version++;
     // Clear previous visible cells status in fogMap
     this.visibleCells.forEach(key => {
         if (this.exploredCells.has(key)) {
@@ -63,6 +70,7 @@ export class FogOfWar {
    * Marks a set of cells as permanently explored (Flood Fill)
    */
   markMultipleExplored(cellKeys: Set<string>): void {
+    this._version++;
     cellKeys.forEach(key => {
         this.exploredCells.add(key);
         // Only update map state if it's not currently visible
@@ -104,6 +112,7 @@ export class FogOfWar {
    * Reset fog of war
    */
   reset(): void {
+    this._version++;
     this.fogMap.forEach((_, key) => {
       this.fogMap.set(key, FogState.UNKNOWN);
     });

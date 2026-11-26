@@ -328,6 +328,17 @@ export class GameApp {
         pause.textContent = 'Pause';
       }
     });
+    // The dev tools FPS readout shows the real frame rate. Rendering is not
+    // capped, so it follows the monitor's refresh rate (60, 120, 144 Hz...).
+    const fpsCounter = document.getElementById('fpsCounter');
+    const ticker = this.engine.renderer.getApp().ticker;
+    let sinceFpsUpdate = 0;
+    ticker.add(() => {
+      sinceFpsUpdate += ticker.deltaMS;
+      if (sinceFpsUpdate < 500 || !fpsCounter) return;
+      sinceFpsUpdate = 0;
+      fpsCounter.textContent = `FPS: ${Math.round(ticker.FPS)}`;
+    });
     for (const id of ['saveButton', 'loadButton', 'muteButton']) {
       document.getElementById(id)?.addEventListener('click', () => {
         this.hud.log('Not in the demo yet.');

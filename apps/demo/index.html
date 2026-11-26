@@ -6,9 +6,9 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB5PSIuOWVtIiBmb250LXNpemU9IjkwIj7wn46uPC90ZXh0Pjwvc3ZnPg==" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dungeon Demo</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <!-- Start downloading the sprite atlas and first map while the JS loads. -->
+    <link rel="preload" href="/atlas/sprites.json" as="fetch" crossorigin />
+    <link rel="preload" href="/maps/dungeon_adventure.json" as="fetch" crossorigin />
   </head>
   <body>
     <div id="app">
@@ -62,7 +62,7 @@
           <!-- Bottom Left: Dev Tools -->
           <div class="dev-tools-wrapper">
             <div id="devToolsPanel" class="engine-panel dev-tools-panel">
-              <div id="fpsCounter" class="fps-counter">FPS: 60</div>
+              <div id="fpsCounter" class="fps-counter">FPS: --</div>
               <div><strong>Player:</strong> <span id="playerCoords">0, 0</span></div>
               <div><strong>Mouse:</strong> <span id="mouseCoords">0, 0</span></div>
             </div>

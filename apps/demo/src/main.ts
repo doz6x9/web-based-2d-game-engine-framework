@@ -1,3 +1,4 @@
+import '@fontsource/press-start-2p/latin-400.css';
 import './styles/main.scss';
 import { GameApp } from './game/GameApp';
 

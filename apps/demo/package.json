@@ -13,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/press-start-2p": "^5.3.0",
     "pixi.js": "^8.18.1",
     "web-based-2d-game-engine-framework": "^0.1.0"
   },

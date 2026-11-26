@@ -99,6 +99,8 @@ export class Renderer {
   private static readonly CLICK_LABEL_MS = 1500;
 
   private fallbackTexture!: PIXI.Texture;
+  private lastFog: FogOfWar | null = null;
+  private lastFogKey = '';
 
   constructor(tileSize: number = 32) {
     this.tileSize = tileSize;
@@ -276,6 +278,11 @@ export class Renderer {
   }
 
   renderFogOfWar(fogOfWar: FogOfWar, mapWidth: number, mapHeight: number): void {
+    // Rebuilding the fog geometry every frame is wasted work: only redraw when it changed.
+    const key = `${fogOfWar.version}:${mapWidth}x${mapHeight}`;
+    if (fogOfWar === this.lastFog && key === this.lastFogKey) return;
+    this.lastFog = fogOfWar;
+    this.lastFogKey = key;
     this.fogGraphics.clear();
     for (let y = 0; y < mapHeight; y++) {
       for (let x = 0; x < mapWidth; x++) {
