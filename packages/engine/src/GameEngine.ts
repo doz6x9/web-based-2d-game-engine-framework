@@ -11,6 +11,7 @@ import { MouseHandler, MouseEventType } from './interaction/MouseHandler';
 import { KeyboardHandler } from './interaction/KeyboardHandler';
 import { AnimationLibrary } from './render/Animation';
 import { ParticleSystem } from './render/Particles';
+import { LightingSystem } from './systems/LightingSystem';
 import * as PIXI from 'pixi.js';
 
 export interface EngineLifecycleOptions {
@@ -108,6 +109,8 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
   public floodFill: FloodFill;
   public animationLibrary: AnimationLibrary;
   public particleSystem: ParticleSystem;
+  /** Combines light sources into the visible set used by Fog of War. */
+  public lighting: LightingSystem;
 
   private entities: Map<string, IEntity> = new Map();
   private gameTime: number = 0;
@@ -129,6 +132,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     this.floodFill = new FloodFill(this.grid);
     this.animationLibrary = new AnimationLibrary();
     this.particleSystem = new ParticleSystem();
+    this.lighting = new LightingSystem(this.fov);
 
     TileRegistry.initialize();
   }
@@ -211,6 +215,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     }
     this.fogOfWar = new FogOfWar(this.grid.getWidth(), this.grid.getHeight(), this.fov); // Reset FogOfWar
     this.renderer.clearMapCache();
+    this.lighting.clear();
     this.map = null;
     this.entities.clear(); // Ensure entities are cleared
   }
@@ -248,6 +253,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     }
 
     this.fogOfWar = new FogOfWar(this.map.getWidth(), this.map.getHeight(), this.fov);
+    this.lighting.markDirty();
     this.renderer.getCamera().mapWidth = this.map.getWidth();
     this.renderer.getCamera().mapHeight = this.map.getHeight();
 
@@ -304,7 +310,11 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     this.renderer.applyCameraTransform();
     this.renderer.renderMap(this.map);
 
-    // Handle Fog of War (game logic needs to update FOV separately via fov module)
+    // Lights registered on engine.lighting update Fog of War automatically.
+    // Games that drive the fov module themselves can leave lighting empty.
+    if (this.lighting.getLights().length > 0) {
+      this.lighting.update(this.fogOfWar);
+    }
     this.renderer.renderFogOfWar(this.fogOfWar, this.map.getWidth(), this.map.getHeight());
 
     const cameraPos = this.renderer.getCamera().getPosition();

@@ -42,4 +42,6 @@ export {
 export { KeyboardEventType, KeyboardHandler, type KeyboardCallback } from './interaction/KeyboardHandler';
 export { MouseEventType, MouseHandler, type ICamera, type MouseHandlerOptions } from './interaction/MouseHandler';
 
+export { LightingSystem, type Light } from './systems/LightingSystem';
+
 export { EditorTool, EditorUI, LevelEditor, type EditorState } from './editor/LevelEditor';

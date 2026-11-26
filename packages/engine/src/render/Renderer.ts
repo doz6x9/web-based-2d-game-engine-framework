@@ -195,6 +195,7 @@ export class Renderer {
     const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
     const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
 
+    let isBaseLayer = true;
     for (let i = 0; i < layers.length; i++) {
       const layer = layers[i];
       if (layer.getName() === 'collision') continue;
@@ -204,12 +205,14 @@ export class Renderer {
 
       const data = layer.getData();
       let childIndex = 0;
+      // Tile 0 is a real tile (grass) on the base layer, but means "empty" on overlay layers.
+      const skipZeroTiles = !isBaseLayer;
+      isBaseLayer = false;
 
       for (let y = startY; y < endY; y++) {
         for (let x = startX; x < endX; x++) {
           const tileType = data[y][x];
-          // Skip empty tiles (0) unless specifically required by game logic
-          if (tileType === 0) continue;
+          if (tileType === 0 && skipZeroTiles) continue;
 
           // Purely rely on TileRegistry - no hardcoded "cave_wall" logic
           const textureId = TileRegistry.getSprite(tileType);

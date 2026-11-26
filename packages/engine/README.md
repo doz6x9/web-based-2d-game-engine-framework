@@ -81,6 +81,7 @@ import {
   FieldOfView,
   FogOfWar,
   FloodFill,
+  LightingSystem,
   ParticleSystem,
   AnimationLibrary,
   LevelEditor,
@@ -88,6 +89,22 @@ import {
 ```
 
 The root export intentionally exposes engine building blocks instead of forcing one game architecture. Use `GameEngine` for an integrated runtime, or compose lower-level modules directly for custom tools, simulations, editors, and tests.
+
+## Lighting
+
+`engine.lighting` combines any number of light sources into one visible set and feeds it to Fog of War every frame. It only recalculates when a light is added, removed, moved, resized or toggled.
+
+```ts
+const playerPos = new Vector(2, 2);
+engine.lighting.addLight({ id: 'player', position: playerPos, radius: 10 });
+engine.lighting.addLight({ id: 'torch-1', position: new Vector(20, 18), radius: 3 });
+
+playerPos.x += 1;                           // lights follow the Vector you pass in
+engine.lighting.setEnabled('torch-1', false);
+engine.lighting.markDirty();                // call after changing walls or doors on the grid
+```
+
+Lights are cleared by `engine.clear()`. If no lights are registered, the engine leaves Fog of War alone so you can drive `engine.fov` yourself.
 
 ## Map Format
 
@@ -123,15 +140,16 @@ Maps are JSON objects with named layers. A `terrain` layer defines tile types; a
 
 ## Local Development
 
+This package lives in an npm workspaces monorepo. From the repository root:
+
 ```bash
 npm install
-npm run dev
+npm run dev            # builds the engine, then starts the demo in apps/demo
 ```
 
-Useful scripts:
+Useful scripts, run from `packages/engine`:
 
 - `npm run build` builds the npm package into `dist/`.
-- `npm run build:demo` builds the local demo app into `dist-demo/`.
 - `npm run typecheck` runs TypeScript without emitting files.
 - `npm pack --dry-run` verifies the exact package contents before publishing.
 
