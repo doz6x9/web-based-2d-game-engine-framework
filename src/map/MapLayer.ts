@@ -1,5 +1,17 @@
+/**
+ * What a layer is for.
+ * - `ground`: the base tiles. Every cell is drawn (tile 0 is a real tile) and the
+ *   tile ids set walkability and movement cost.
+ * - `collision`: not drawn. A non-zero value overrides the ground tile for that cell.
+ * - `overlay`: drawn on top of the ground in array order (landmarks, decorations).
+ *   Tile 0 means "empty". Overlays do not change walkability.
+ */
+export type MapLayerRole = 'ground' | 'collision' | 'overlay';
+
 export interface MapLayerJSON {
   name?: string;
+  /** Optional. When left out, the role comes from the map's layer names (see MapJSON). */
+  role?: MapLayerRole;
   data?: number[] | number[][];
 }
 
@@ -9,6 +21,16 @@ export interface MapJSON {
   height?: number;
   layers?: MapLayerJSON[];
   objects?: unknown[];
+  /** Name of the ground layer. Defaults to "terrain", then the first non-collision layer. */
+  groundLayer?: string;
+  /** Name of the collision layer. Defaults to "collision". A map may have none. */
+  collisionLayer?: string;
+}
+
+/** Layer names to use when a map does not say which layer is which. */
+export interface MapLayerNames {
+  ground?: string;
+  collision?: string;
 }
 
 /**
@@ -16,6 +38,7 @@ export interface MapJSON {
  */
 export class MapLayer {
   private name: string;
+  private role: MapLayerRole = 'overlay';
   private data: number[][];
   private width: number;
   private height: number;
@@ -32,6 +55,15 @@ export class MapLayer {
    */
   getName(): string {
     return this.name;
+  }
+
+  /** What this layer is for: ground, collision or overlay. */
+  getRole(): MapLayerRole {
+    return this.role;
+  }
+
+  setRole(role: MapLayerRole): void {
+    this.role = role;
   }
 
   /**
@@ -111,6 +143,16 @@ export class GameMap {
     return this.layers;
   }
 
+  /** The base layer that sets walkability and cost. */
+  getGroundLayer(): MapLayer | undefined {
+    return this.layers.find((l) => l.getRole() === 'ground');
+  }
+
+  /** The optional collision layer, which is never drawn. */
+  getCollisionLayer(): MapLayer | undefined {
+    return this.layers.find((l) => l.getRole() === 'collision');
+  }
+
   /**
    * Get map dimensions
    */
@@ -137,8 +179,18 @@ export class MapLoader {
   /**
    * Parse map JSON data
    */
+  static readonly DEFAULT_LAYER_NAMES: Required<MapLayerNames> = { ground: 'terrain', collision: 'collision' };
+
+  /**
+   * Parses map JSON. Which layer is the ground and which is collision is decided,
+   * in order, by each layer's `role`, the map's `groundLayer` / `collisionLayer`
+   * fields, the `names` passed here, and finally the defaults ("terrain" and
+   * "collision"). If there is still no ground layer, the first layer that isn't
+   * the collision layer becomes the ground. Every other layer is an overlay.
+   */
   static parseMapJSON(
-    mapData: MapJSON
+    mapData: MapJSON,
+    names: MapLayerNames = {}
   ): GameMap {
     const mapWidth = mapData.width || 0;
     const mapHeight = mapData.height || 0;
@@ -169,11 +221,30 @@ export class MapLoader {
           layerData.name || 'Layer',
           formattedData
         );
+        if (layerData.role) layer.setRole(layerData.role);
         map.addLayer(layer);
       }
     }
 
+    MapLoader.assignLayerRoles(map, mapData, names);
     return map;
+  }
+
+  private static assignLayerRoles(map: GameMap, mapData: MapJSON, names: MapLayerNames): void {
+    const layers = map.getLayers();
+    const explicit = (mapData.layers ?? []).map((l) => l.role);
+    const groundName = mapData.groundLayer ?? names.ground ?? MapLoader.DEFAULT_LAYER_NAMES.ground;
+    const collisionName = mapData.collisionLayer ?? names.collision ?? MapLoader.DEFAULT_LAYER_NAMES.collision;
+
+    if (!explicit.includes('collision')) {
+      const c = layers.findIndex((l, i) => !explicit[i] && l.getName() === collisionName);
+      if (c >= 0) layers[c].setRole('collision');
+    }
+    if (!explicit.includes('ground')) {
+      let g = layers.findIndex((l, i) => !explicit[i] && l.getName() === groundName && l.getRole() !== 'collision');
+      if (g < 0) g = layers.findIndex((l) => l.getRole() !== 'collision');
+      if (g >= 0) layers[g].setRole('ground');
+    }
   }
 
   /**

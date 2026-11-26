@@ -12,7 +12,11 @@ export interface TileDefinition {
   color: number; // Fallback color if sprite unavailable
 }
 
-export enum TileType {
+/**
+ * Built-in tile ids. `CellType` is the name the Grid uses; `TileType` is kept as
+ * an alias so both names refer to the same values.
+ */
+export enum CellType {
   GRASS = 0,
   CAVE_WALL = 1,
   WATER = 2,
@@ -27,13 +31,23 @@ export enum TileType {
   FOREST = 11,
 }
 
+export const TileType = CellType;
+export type TileType = CellType;
+
 export class TileRegistry {
   private static tiles: Map<number, TileDefinition> = new Map();
+  private static initialized = false;
+
+  /** Registers the built-in tiles the first time any lookup happens. */
+  private static ensureInitialized(): void {
+    if (!TileRegistry.initialized) TileRegistry.initialize();
+  }
 
   /**
    * Initialize default tile definitions mapping integers to textures
    */
   static initialize(): void {
+    TileRegistry.initialized = true;
     this.registerTile(TileType.GRASS, {
       cost: 1,
       walkable: true,
@@ -43,7 +57,7 @@ export class TileRegistry {
     });
 
     this.registerTile(TileType.CAVE_WALL, {
-      cost: 0,
+      cost: Infinity,
       walkable: false,
       sprite: 'cave_wall',
       name: 'Cave Wall',
@@ -51,7 +65,7 @@ export class TileRegistry {
     });
 
     this.registerTile(TileType.WATER, {
-      cost: 0,
+      cost: Infinity,
       walkable: false,
       sprite: 'water',
       name: 'Water',
@@ -83,7 +97,7 @@ export class TileRegistry {
     });
 
     this.registerTile(TileType.DEEP_WATER, {
-      cost: 0,
+      cost: Infinity,
       walkable: false,
       sprite: 'deep_water',
       name: 'Deep Water',
@@ -123,7 +137,7 @@ export class TileRegistry {
     });
 
     this.registerTile(TileType.FOREST, {
-      cost: 0,
+      cost: Infinity,
       walkable: false,
       sprite: 'forest',
       name: 'Forest',
@@ -135,6 +149,7 @@ export class TileRegistry {
    * Register a custom tile definition
    */
   static registerTile(id: number, definition: TileDefinition): void {
+    TileRegistry.ensureInitialized();
     this.tiles.set(id, definition);
   }
 
@@ -142,6 +157,7 @@ export class TileRegistry {
    * Get tile definition by ID
    */
   static getTile(id: number): TileDefinition | undefined {
+    TileRegistry.ensureInitialized();
     return this.tiles.get(id);
   }
 
@@ -149,6 +165,7 @@ export class TileRegistry {
    * Get all registered tiles
    */
   static getAllTiles(): Map<number, TileDefinition> {
+    TileRegistry.ensureInitialized();
     return this.tiles;
   }
 
@@ -156,6 +173,7 @@ export class TileRegistry {
    * Check if tile exists
    */
   static hasTile(id: number): boolean {
+    TileRegistry.ensureInitialized();
     return this.tiles.has(id);
   }
 
@@ -163,6 +181,7 @@ export class TileRegistry {
    * Get cost for a tile type
    */
   static getCost(id: number): number {
+    TileRegistry.ensureInitialized();
     const tile = this.tiles.get(id);
     return tile ? tile.cost : Infinity;
   }
@@ -171,6 +190,7 @@ export class TileRegistry {
    * Check if tile is walkable
    */
   static isWalkable(id: number): boolean {
+    TileRegistry.ensureInitialized();
     const tile = this.tiles.get(id);
     return tile ? tile.walkable : false;
   }
@@ -179,6 +199,7 @@ export class TileRegistry {
    * Get color for a tile type
    */
   static getColor(id: number): number {
+    TileRegistry.ensureInitialized();
     const tile = this.tiles.get(id);
     return tile ? tile.color : 0x808080;
   }
@@ -187,6 +208,7 @@ export class TileRegistry {
    * Get sprite for a tile type
    */
   static getSprite(id: number): string | null {
+    TileRegistry.ensureInitialized();
     const tile = this.tiles.get(id);
     return tile ? tile.sprite : null;
   }
