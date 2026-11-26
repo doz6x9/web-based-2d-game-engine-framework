@@ -38,9 +38,15 @@
     "typescript",
     "tilemap",
     "pathfinding",
-    "fov"
+    "fov",
+    "fog-of-war",
+    "a-star",
+    "flood-fill",
+    "lighting",
+    "roguelike",
+    "grid"
   ],
-  "author": "",
+  "author": "doz",
   "license": "MIT",
   "peerDependencies": {
     "pixi.js": "^8.18.1"
@@ -55,5 +61,12 @@
     "type": "git",
     "url": "git+https://github.com/doz6x9/web-based-2d-game-engine-framework.git",
     "directory": "packages/engine"
+  },
+  "homepage": "https://github.com/doz6x9/web-based-2d-game-engine-framework/tree/engineFramework#readme",
+  "bugs": {
+    "url": "https://github.com/doz6x9/web-based-2d-game-engine-framework/issues"
+  },
+  "engines": {
+    "node": ">=20.19.0"
   }
 }

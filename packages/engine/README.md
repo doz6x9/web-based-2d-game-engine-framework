@@ -1,6 +1,14 @@
 # Web-Based 2D Game Engine Framework
 
-A modular TypeScript framework for browser-based 2D grid games, powered by PixiJS. It provides rendering, map loading, pathfinding, visibility, fog of war, particles, input handling, animation helpers, and a small editor toolkit while keeping game-specific rules in your application.
+A modular TypeScript framework for browser-based 2D grid games, powered by PixiJS. It provides rendering, multi-layer JSON maps, view handling, A* pathfinding with terrain costs, field of view with shadows and several lights, Fog of War, flood-fill room reveal, mouse-to-cell input, particles, animation helpers and a small editor toolkit. Game-specific rules stay in your application.
+
+![A game built with the engine: lights, fog of war and a room revealed by flood fill](https://raw.githubusercontent.com/doz6x9/web-based-2d-game-engine-framework/main/docs/screenshots/demo-room-reveal.png)
+
+## Where to Get It
+
+- **npm:** `npm install web-based-2d-game-engine-framework pixi.js`
+- **Engine source only:** the [`engineFramework`](https://github.com/doz6x9/web-based-2d-game-engine-framework/tree/engineFramework) branch. Clone it to work on the engine itself.
+- **Engine plus a playable demo game:** the [`main`](https://github.com/doz6x9/web-based-2d-game-engine-framework) branch, where the engine lives in `packages/engine` and the demo in `apps/demo`.
 
 ## Features
 
@@ -9,7 +17,16 @@ A modular TypeScript framework for browser-based 2D grid games, powered by PixiJ
 - A* pathfinding with terrain costs, raycast/shadowcast field of view, fog of war, and flood fill utilities.
 - Event-driven engine lifecycle with typed events for map loading, input, update, and render hooks.
 - ESM and CommonJS package output with TypeScript declaration files.
-- Demo app remains available locally through Vite, separate from the npm package build.
+- Unit tests (Vitest) for the algorithms, lighting, fog and mouse input.
+
+## Screenshots
+
+From the demo game on the `main` branch.
+
+| | |
+|---|---|
+| ![Right-click path and click labels](https://raw.githubusercontent.com/doz6x9/web-based-2d-game-engine-framework/main/docs/screenshots/demo-pathfinding-clicks.png) | ![Torches lighting a hall](https://raw.githubusercontent.com/doz6x9/web-based-2d-game-engine-framework/main/docs/screenshots/demo-level2-torches.png) |
+| A\* path to a right-clicked cell, with left and right clicks labelled by grid cell. | Several torches at once. Walls cast shadows, and unexplored cells stay dark. |
 
 ## Install
 
@@ -180,17 +197,23 @@ Maps are JSON objects with named layers. A `terrain` layer defines tile types; a
 
 ## Local Development
 
-This package lives in an npm workspaces monorepo. From the repository root:
+You need Node.js 20.19 or newer.
+
+On the `engineFramework` branch, the engine is at the top of the repository:
 
 ```bash
 npm install
-npm run dev            # builds the engine, then starts the demo in apps/demo
+npm run build          # builds the npm package into dist/
+npm test               # runs the unit tests
 ```
 
-Useful scripts, run from `packages/engine`:
+On `main` or `develop`, the engine is in `packages/engine` and the demo in `apps/demo`. From the repository root, `npm run dev` builds the engine and starts the demo, and `npm test` runs the engine tests.
+
+Useful scripts:
 
 - `npm run build` builds the npm package into `dist/`.
 - `npm run typecheck` runs TypeScript without emitting files.
+- `npm test` runs the unit tests once; `npm run test:watch` re-runs them on save.
 - `npm pack --dry-run` verifies the exact package contents before publishing.
 
 ## Running the Tests
@@ -198,8 +221,8 @@ Useful scripts, run from `packages/engine`:
 The engine has unit tests (Vitest) for A* pathfinding (including terrain costs and shortest-path checks), field of view and shadows, several lights at once, Fog of War, flood fill room reveal, and turning mouse clicks into grid cells.
 
 ```bash
-npm test            # from the repository root, or inside packages/engine
-npm run test:watch  # re-run on save (inside packages/engine)
+npm test            # run once
+npm run test:watch  # re-run on save
 ```
 
 ## Publish Checklist
