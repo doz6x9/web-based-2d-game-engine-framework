@@ -193,6 +193,15 @@ Useful scripts, run from `packages/engine`:
 - `npm run typecheck` runs TypeScript without emitting files.
 - `npm pack --dry-run` verifies the exact package contents before publishing.
 
+## Running the Tests
+
+The engine has unit tests (Vitest) for A* pathfinding (including terrain costs and shortest-path checks), field of view and shadows, several lights at once, Fog of War, flood fill room reveal, and turning mouse clicks into grid cells.
+
+```bash
+npm test            # from the repository root, or inside packages/engine
+npm run test:watch  # re-run on save (inside packages/engine)
+```
+
 ## Publish Checklist
 
 1. Update `name`, `version`, `author`, `repository`, and `keywords` in `package.json`.
@@ -203,12 +212,3 @@ Useful scripts, run from `packages/engine`:
 ## License
 
 MIT
-
-## Running the Tests
-
-The engine has unit tests (Vitest) for A* pathfinding (including terrain costs and shortest-path checks), field of view and shadows, several lights at once, Fog of War, flood fill room reveal, and turning mouse clicks into grid cells.
-
-```bash
-npm test            # from the repository root, or inside packages/engine
-npm run test:watch  # re-run on save (inside packages/engine)
-```
