@@ -15,6 +15,11 @@ export class Camera {
   public mapWidth: number;
   public mapHeight: number;
   private tileSize: number;
+  /** Whole-number zoom factor. Integer steps keep pixel art crisp. */
+  public zoom = 1;
+  /** Screen-pixel offset used to centre a map that is smaller than the view. */
+  public offsetX = 0;
+  public offsetY = 0;
 
   constructor(
     width: number,
@@ -36,14 +41,52 @@ export class Camera {
    * Properly handles arbitrary grid coordinates for maps larger than canvas.
    */
   centerOn(target: Vector): void {
-    let x = target.x - (this.width / this.tileSize) / 2;
-    let y = target.y - (this.height / this.tileSize) / 2;
+    const viewW = this.getViewWidthInTiles();
+    const viewH = this.getViewHeightInTiles();
+    const tile = this.getScaledTileSize();
 
-    // Clamp to map bounds
-    x = Math.max(0, Math.min(x, this.mapWidth - this.width / this.tileSize));
-    y = Math.max(0, Math.min(y, this.mapHeight - this.height / this.tileSize));
+    // A map smaller than the view is centred; a larger one scrolls with the target.
+    let x: number;
+    if (this.mapWidth <= viewW) {
+      x = 0;
+      this.offsetX = Math.floor((this.width - this.mapWidth * tile) / 2);
+    } else {
+      x = Math.max(0, Math.min(target.x - viewW / 2, this.mapWidth - viewW));
+      this.offsetX = 0;
+    }
+    let y: number;
+    if (this.mapHeight <= viewH) {
+      y = 0;
+      this.offsetY = Math.floor((this.height - this.mapHeight * tile) / 2);
+    } else {
+      y = Math.max(0, Math.min(target.y - viewH / 2, this.mapHeight - viewH));
+      this.offsetY = 0;
+    }
 
     this.position = new Vector(x, y);
+  }
+
+  /** Size of one map cell on screen, in pixels, after zoom. */
+  getScaledTileSize(): number {
+    return this.tileSize * this.zoom;
+  }
+
+  getViewWidthInTiles(): number {
+    return this.width / this.getScaledTileSize();
+  }
+
+  getViewHeightInTiles(): number {
+    return this.height / this.getScaledTileSize();
+  }
+
+  /**
+   * Pick the largest whole-number zoom at which the whole map still fits the
+   * view (never below 1), so small maps fill the screen and stay pixel-crisp.
+   */
+  fitZoomToMap(maxZoom = 8): number {
+    const fit = Math.min(this.width / (this.mapWidth * this.tileSize), this.height / (this.mapHeight * this.tileSize));
+    this.zoom = Math.max(1, Math.min(maxZoom, Math.floor(fit)));
+    return this.zoom;
   }
 
   /**
@@ -57,8 +100,9 @@ export class Camera {
    * Convert screen coordinates to world coordinates
    */
   screenToWorld(screenX: number, screenY: number): Vector {
-    const gridX = Math.floor(this.position.x + screenX / this.tileSize);
-    const gridY = Math.floor(this.position.y + screenY / this.tileSize);
+    const tile = this.getScaledTileSize();
+    const gridX = Math.floor(this.position.x + (screenX - this.offsetX) / tile);
+    const gridY = Math.floor(this.position.y + (screenY - this.offsetY) / tile);
     return new Vector(gridX, gridY);
   }
 
@@ -66,8 +110,9 @@ export class Camera {
    * Convert world coordinates to screen coordinates
    */
   worldToScreen(worldX: number, worldY: number): Vector {
-    const screenX = (worldX - this.position.x) * this.tileSize;
-    const screenY = (worldY - this.position.y) * this.tileSize;
+    const tile = this.getScaledTileSize();
+    const screenX = (worldX - this.position.x) * tile + this.offsetX;
+    const screenY = (worldY - this.position.y) * tile + this.offsetY;
     return new Vector(screenX, screenY);
   }
 }
@@ -99,6 +144,17 @@ export class Renderer {
   private static readonly CLICK_LABEL_MS = 1500;
 
   private fallbackTexture!: PIXI.Texture;
+  /**
+   * Colours used for Fog of War. `unknownGridColor` draws a faint grid over
+   * unexplored cells so they read as "map not yet explored" rather than empty
+   * space; set it to null for plain black.
+   */
+  public fogStyle: { unknownColor: number; unknownGridColor: number | null; exploredColor: number; exploredAlpha: number } = {
+    unknownColor: 0x000000,
+    unknownGridColor: null,
+    exploredColor: 0x1a1a1a,
+    exploredAlpha: 0.65,
+  };
   private lastFog: FogOfWar | null = null;
   private lastFogKey = '';
 
@@ -217,8 +273,8 @@ export class Renderer {
     const cameraPos = this.camera.getPosition();
     const startX = Math.max(0, Math.floor(cameraPos.x));
     const startY = Math.max(0, Math.floor(cameraPos.y));
-    const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.width / this.tileSize) + 2);
-    const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.height / this.tileSize) + 2);
+    const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.getViewWidthInTiles()) + 2);
+    const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.getViewHeightInTiles()) + 2);
 
     let isBaseLayer = true;
     for (let i = 0; i < layers.length; i++) {
@@ -279,7 +335,8 @@ export class Renderer {
 
   renderFogOfWar(fogOfWar: FogOfWar, mapWidth: number, mapHeight: number): void {
     // Rebuilding the fog geometry every frame is wasted work: only redraw when it changed.
-    const key = `${fogOfWar.version}:${mapWidth}x${mapHeight}`;
+    const style = this.fogStyle;
+    const key = `${fogOfWar.version}:${mapWidth}x${mapHeight}:${style.unknownColor},${style.unknownGridColor},${style.exploredColor},${style.exploredAlpha}`;
     if (fogOfWar === this.lastFog && key === this.lastFogKey) return;
     this.lastFog = fogOfWar;
     this.lastFogKey = key;
@@ -287,10 +344,16 @@ export class Renderer {
     for (let y = 0; y < mapHeight; y++) {
       for (let x = 0; x < mapWidth; x++) {
         const fogState = fogOfWar.getFogState(x, y);
+        const { unknownColor, exploredColor, exploredAlpha, unknownGridColor } = this.fogStyle;
         if (fogState === FogState.UNKNOWN) {
-          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 1 });
+          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: unknownColor, alpha: 1 });
+          if (unknownGridColor !== null) {
+            this.fogGraphics
+              .rect(x * this.tileSize + 0.5, y * this.tileSize + 0.5, this.tileSize - 1, this.tileSize - 1)
+              .stroke({ color: unknownGridColor, width: 1, alpha: 1 });
+          }
         } else if (fogState === FogState.EXPLORED) {
-          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x1a1a1a, alpha: 0.65 });
+          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: exploredColor, alpha: exploredAlpha });
         }
       }
     }
@@ -505,12 +568,19 @@ export class Renderer {
 
   applyCameraTransform(): void {
     const cameraPos = this.camera.getPosition();
-    this.worldContainer.x = -cameraPos.x * this.tileSize;
-    this.worldContainer.y = -cameraPos.y * this.tileSize;
+    const tile = this.camera.getScaledTileSize();
+    this.worldContainer.scale.set(this.camera.zoom);
+    this.worldContainer.x = Math.round(this.camera.offsetX - cameraPos.x * tile);
+    this.worldContainer.y = Math.round(this.camera.offsetY - cameraPos.y * tile);
   }
 
+  /**
+   * Resize the canvas. The camera object is kept (the mouse handler holds a
+   * reference to it); only its view size changes.
+   */
   resize(width: number, height: number): void {
     this.app.renderer.resize(width, height);
-    this.camera = new Camera(width, height, this.camera.mapWidth, this.camera.mapHeight, this.tileSize);
+    this.camera.width = width;
+    this.camera.height = height;
   }
 }

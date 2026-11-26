@@ -8,6 +8,7 @@ import {
 } from 'web-based-2d-game-engine-framework';
 import * as PIXI from 'pixi.js';
 import { Hud } from './Hud';
+import { fitCanvasToStage } from './fitCanvas';
 
 /** Raw object entry from a map JSON file (demo-specific schema). */
 interface MapObjectData {
@@ -120,7 +121,18 @@ export class GameApp {
     this.engine.on('gridClick', (x, y, button) => this.onGridClick(x, y, button));
     this.engine.on('gridHover', (x, y) => this.hud.setMouseCoords(x, y));
 
-    await this.engine.init(canvas, 1280, 720, ASSETS, LEVELS[this.level], { showMouseCoordinates: true });
+    // The engine picks a zoom for each map and shrinks the canvas to the map,
+    // so there are no empty borders; the page then scales it to fill the stage.
+    this.engine.on('viewResized', () => fitCanvasToStage());
+    window.addEventListener('resize', () => fitCanvasToStage());
+    await this.engine.init(canvas, 1280, 720, ASSETS, LEVELS[this.level], {
+      showMouseCoordinates: true,
+      fitCanvasToMap: true,
+    });
+    fitCanvasToStage();
+    // Unexplored cells get a faint grid so they read as unexplored map, not empty space.
+    this.engine.renderer.fogStyle.unknownColor = 0x08080e;
+    this.engine.renderer.fogStyle.unknownGridColor = 0x14141f;
 
     this.setupButtons();
     this.hud.setHealth(this.playerHealth, PLAYER_MAX_HEALTH);

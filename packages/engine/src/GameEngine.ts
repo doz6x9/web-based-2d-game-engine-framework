@@ -18,6 +18,18 @@ export interface EngineLifecycleOptions {
   autoStart?: boolean;
   /** Draw the clicked cell's coordinates on the canvas (left and right clicks are coloured differently). */
   showMouseCoordinates?: boolean;
+  /**
+   * Fit the view to each map as it loads: pick the largest whole-number zoom
+   * that still shows the whole map, and centre maps smaller than the view.
+   * Defaults to true.
+   */
+  fitMapToView?: boolean;
+  /**
+   * Shrink the canvas to the map's size (after zoom) when the map is smaller
+   * than the canvas size given to init, so there are no empty borders.
+   * Defaults to false.
+   */
+  fitCanvasToMap?: boolean;
 }
 
 export interface EngineInitOptions extends EngineLifecycleOptions {
@@ -30,6 +42,8 @@ export interface EngineInitOptions extends EngineLifecycleOptions {
 
 export interface EngineEventMap {
   mapLoaded: [mapData: MapJSON];
+  /** The canvas or camera view changed size (e.g. fitted to a new map). */
+  viewResized: [width: number, height: number];
   gridClick: [x: number, y: number, button: 'left' | 'right'];
   gridHover: [x: number, y: number];
   update: [deltaTime: number];
@@ -127,7 +141,11 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
   private lifecycleOptions: Required<EngineLifecycleOptions> = {
     autoStart: true,
     showMouseCoordinates: false,
+    fitMapToView: true,
+    fitCanvasToMap: false,
   };
+  /** Canvas size passed to init; the upper bound when fitting the canvas to a map. */
+  private maxCanvasSize = { width: 0, height: 0 };
 
   constructor(options: EngineLifecycleOptions = {}) {
     super();
@@ -159,6 +177,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     this.lifecycleOptions = this.resolveLifecycleOptions(options);
     // Initialize renderer
     await this.renderer.init(canvas, canvasWidth, canvasHeight, this.grid.getWidth(), this.grid.getHeight());
+    this.maxCanvasSize = { width: canvasWidth, height: canvasHeight };
 
     // Initialize handlers
     // Click coordinates are drawn on the canvas by the renderer, not by a DOM overlay.
@@ -209,6 +228,8 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     return {
       autoStart: options.autoStart ?? this.lifecycleOptions.autoStart,
       showMouseCoordinates: options.showMouseCoordinates ?? this.lifecycleOptions.showMouseCoordinates,
+      fitMapToView: options.fitMapToView ?? this.lifecycleOptions.fitMapToView,
+      fitCanvasToMap: options.fitCanvasToMap ?? this.lifecycleOptions.fitCanvasToMap,
     };
   }
 
@@ -265,8 +286,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     this.fogOfWar = new FogOfWar(this.map.getWidth(), this.map.getHeight(), this.fov);
     this.lighting.markDirty();
     this.spawnPoint = this.resolveSpawnPoint(mapData);
-    this.renderer.getCamera().mapWidth = this.map.getWidth();
-    this.renderer.getCamera().mapHeight = this.map.getHeight();
+    this.fitViewToMap();
 
     // Engine exposes an event so the game can spawn logic entities from mapData
     this.emit('mapLoaded', mapData);
@@ -304,6 +324,34 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
       }
     }
     return null;
+  }
+
+  /**
+   * Size the view for the current map: zoom, centring and (optionally) the
+   * canvas size. Called automatically when a map loads.
+   */
+  public fitViewToMap(): void {
+    if (!this.map) return;
+    const camera = this.renderer.getCamera();
+    camera.mapWidth = this.map.getWidth();
+    camera.mapHeight = this.map.getHeight();
+
+    if (this.lifecycleOptions.fitCanvasToMap && this.maxCanvasSize.width > 0) {
+      // Start from the full canvas so zoom is chosen against the largest space.
+      this.renderer.resize(this.maxCanvasSize.width, this.maxCanvasSize.height);
+    }
+    camera.zoom = 1;
+    if (this.lifecycleOptions.fitMapToView) camera.fitZoomToMap();
+
+    if (this.lifecycleOptions.fitCanvasToMap && this.maxCanvasSize.width > 0) {
+      const tile = camera.getScaledTileSize();
+      this.renderer.resize(
+        Math.min(this.maxCanvasSize.width, this.map.getWidth() * tile),
+        Math.min(this.maxCanvasSize.height, this.map.getHeight() * tile)
+      );
+    }
+    camera.centerOn(camera.getPosition());
+    this.emit('viewResized', camera.width, camera.height);
   }
 
   /**
@@ -391,8 +439,8 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     this.renderer.renderFogOfWar(this.fogOfWar, this.map.getWidth(), this.map.getHeight());
 
     const cameraPos = this.renderer.getCamera().getPosition();
-    const cameraWidth = this.renderer.getCamera().width / this.renderer.tileSize;
-    const cameraHeight = this.renderer.getCamera().height / this.renderer.tileSize;
+    const cameraWidth = this.renderer.getCamera().getViewWidthInTiles();
+    const cameraHeight = this.renderer.getCamera().getViewHeightInTiles();
 
     // Render generic entities
     for (const entity of this.entities.values()) {

@@ -102,6 +102,21 @@ const assets: AssetConfig[] = [
 
 One atlas means one request and one GPU texture, which lets PixiJS batch tiles and sprites instead of switching textures. `renderer.loadSpritesheet(path)` loads a sheet at runtime and returns its frame names.
 
+## Fitting the View to the Map
+
+Maps can be smaller or larger than the canvas. As each map loads, the engine:
+
+- picks the largest whole-number zoom that still shows the whole map (`fitMapToView`, on by default), so small maps fill the screen and stay pixel-crisp;
+- centres a map that is still smaller than the view, and scrolls with `camera.centerOn()` when it is larger;
+- with `fitCanvasToMap: true`, shrinks the canvas to the map so there are no empty borders. Listen for the `viewResized` event to resize your page layout.
+
+```ts
+await engine.initWithOptions({ canvas, width: 1280, height: 720, assets, fitCanvasToMap: true });
+engine.on('viewResized', (w, h) => console.log('canvas is now', w, h));
+```
+
+`renderer.fogStyle` sets the Fog of War colours. Giving `unknownGridColor` a colour draws a faint grid over unexplored cells so they read as "not explored yet" rather than empty space.
+
 ## Lighting
 
 `engine.lighting` combines any number of light sources into one visible set and feeds it to Fog of War every frame. It only recalculates when a light is added, removed, moved, resized or toggled.
@@ -114,6 +129,9 @@ engine.lighting.addLight({ id: 'torch-1', position: new Vector(20, 18), radius: 
 playerPos.x += 1;                           // lights follow the Vector you pass in
 engine.lighting.setEnabled('torch-1', false);
 engine.lighting.markDirty();                // call after changing walls or doors on the grid
+
+// Torches in undiscovered rooms stay dark until their cell is explored:
+engine.lighting.addLight({ id: 'torch-2', position: new Vector(8, 4), radius: 4, hiddenUntilExplored: true });
 ```
 
 Lights are cleared by `engine.clear()`. If no lights are registered, the engine leaves Fog of War alone so you can drive `engine.fov` yourself.
@@ -121,7 +139,7 @@ Lights are cleared by `engine.clear()`. If no lights are registered, the engine 
 ## Spawn Points, Rooms and Click Coordinates
 
 - `engine.getSpawnPoint()` returns the map's `PLAYER_SPAWN` object. If that cell isn't walkable, or the map has no spawn, it returns the nearest walkable cell instead.
-- `engine.revealRoom(cell)` uses flood fill to mark every cell reachable from `cell` as explored. Call it with the cell just past a door when the door opens.
+- `engine.revealRoom(cell)` uses flood fill to mark every cell reachable from `cell`, plus the walls around them, as explored. Call it with the cell just past a door when the door opens, while the door cell is still solid, so the fill stays inside that room.
 - `initWithOptions({ ..., showMouseCoordinates: true })` draws the clicked cell's coordinates on the canvas: green for left clicks, orange for right clicks.
 - Fog of War draws unexplored cells fully black and explored cells that aren't currently lit as greyed out.
 - `AStarPathfinder` scales its heuristic by the cheapest walkable cell cost, so it still returns the cheapest path when roads cost less than 1.
@@ -153,6 +171,7 @@ Maps are JSON objects with named layers. A `terrain` layer defines tile types; a
 | Event | Callback |
 | --- | --- |
 | `mapLoaded` | `(mapData)` |
+| `viewResized` | `(width, height)` |
 | `gridClick` | `(x, y, button)` |
 | `gridHover` | `(x, y)` |
 | `update` | `(deltaTime)` |

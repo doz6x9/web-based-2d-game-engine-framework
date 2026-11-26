@@ -652,3 +652,34 @@ $side-panel-width: 300px;
     }
   }
 }
+
+// ------------------------------------------------------------ canvas frame
+// The frame wraps the canvas and the HUD overlay and is sized from JS
+// (fitCanvas.ts) to the canvas's aspect ratio, so the HUD sits on the map.
+.game-stage {
+  overflow: hidden;
+}
+
+.canvas-frame {
+  position: relative;
+  flex: 0 0 auto;
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none;
+    max-height: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .game-stage {
+    min-height: 0;
+  }
+}
+
+// The stats bar only shows information, so clicks pass through to the map.
+.hud-overlay .health-display {
+  pointer-events: none;
+}

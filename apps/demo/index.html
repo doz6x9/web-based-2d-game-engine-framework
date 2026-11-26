@@ -14,7 +14,9 @@
     <div id="app">
       <div class="game-container">
         <!-- Scale the canvas down slightly via CSS to fit typical previews nicely, keeps pixel aspect ratio -->
-        <div class="game-stage">
+        <div class="game-stage" id="gameStage">
+        <!-- The frame is sized to the canvas, so the HUD stays anchored to the map -->
+        <div class="canvas-frame" id="canvasFrame">
         <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
         <div id="hudOverlay" class="hud-overlay">
@@ -61,6 +63,7 @@
             </label>
           </div>
 
+        </div>
         </div>
         </div>
 
