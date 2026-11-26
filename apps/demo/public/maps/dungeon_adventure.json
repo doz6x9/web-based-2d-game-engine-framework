@@ -267,6 +267,33 @@
     }
 
 
-
+,
+    {
+      "type": "ITEM",
+      "id": "health_potion_2",
+      "name": "Health Potion",
+      "item_type": "CONSUMABLE",
+      "x": 8,
+      "y": 19,
+      "sprite": "potion"
+    },
+    {
+      "type": "ITEM",
+      "id": "health_potion_3",
+      "name": "Health Potion",
+      "item_type": "CONSUMABLE",
+      "x": 21,
+      "y": 20,
+      "sprite": "potion"
+    },
+    {
+      "type": "ITEM",
+      "id": "health_potion_4",
+      "name": "Health Potion",
+      "item_type": "CONSUMABLE",
+      "x": 12,
+      "y": 23,
+      "sprite": "potion"
+    }
   ]
 }

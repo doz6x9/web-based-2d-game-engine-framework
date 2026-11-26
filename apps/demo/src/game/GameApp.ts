@@ -22,7 +22,7 @@ interface MapObjectData {
   radius?: number;
   health?: number;
   attack?: number;
-  contents?: Array<{ id: string; name: string; type?: string }>;
+  contents?: Array<{ id: string; name: string; type?: string; quantity?: number }>;
 }
 
 /** A spawned dungeon object: an engine entity plus demo game state. */
@@ -487,7 +487,10 @@ export class GameApp {
     this.addScore(SCORE.chest, chest.position);
     const contents = chest.data.contents ?? [];
     if (contents.length === 0) this.hud.log('The chest is empty.');
-    contents.forEach((item) => this.gainItem(item.id, item.name, item.type));
+    for (const item of contents) {
+      const count = Math.max(1, item.quantity ?? 1);
+      for (let i = 0; i < count; i++) this.gainItem(item.id, item.name, item.type);
+    }
     this.endTurn();
   }
 

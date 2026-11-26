@@ -294,6 +294,51 @@
       "y": 23,
       "sprite": "torch",
       "radius": 7
+    },
+    {
+      "type": "ITEM",
+      "id": "health_potion_2",
+      "name": "Health Potion",
+      "item_type": "CONSUMABLE",
+      "x": 5,
+      "y": 6,
+      "sprite": "potion"
+    },
+    {
+      "type": "ITEM",
+      "id": "health_potion_3",
+      "name": "Health Potion",
+      "item_type": "CONSUMABLE",
+      "x": 17,
+      "y": 3,
+      "sprite": "potion"
+    },
+    {
+      "type": "ITEM",
+      "id": "health_potion_4",
+      "name": "Health Potion",
+      "item_type": "CONSUMABLE",
+      "x": 3,
+      "y": 17,
+      "sprite": "potion"
+    },
+    {
+      "type": "ITEM",
+      "id": "health_potion_5",
+      "name": "Health Potion",
+      "item_type": "CONSUMABLE",
+      "x": 27,
+      "y": 12,
+      "sprite": "potion"
+    },
+    {
+      "type": "ITEM",
+      "id": "health_potion_6",
+      "name": "Health Potion",
+      "item_type": "CONSUMABLE",
+      "x": 11,
+      "y": 23,
+      "sprite": "potion"
     }
   ]
 }
