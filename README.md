@@ -30,7 +30,7 @@ The engine handles rendering, multi-layer JSON maps, camera and view fitting, A*
 | `main` | The whole project: the engine package, the demo game, tests and docs | Run the demo or read the full project |
 | `develop` | The same as `main`, where new work lands first | Contribute |
 | `engineFramework` | Only the engine, at the top of the repository, with no demo | Start working on the engine itself |
-| npm: `web-based-2d-game-engine-framework` | The built engine (ESM, CommonJS and TypeScript types) | Build your own game with `npm install` |
+| GitHub Packages: `@doz6x9/web-based-2d-game-engine-framework` | The built engine (ESM, CommonJS and TypeScript types) | Build your own game with `npm install` |
 
 The demo imports the engine by its package name, exactly like any other project would, so it always runs on what gets published.
 
@@ -134,12 +134,21 @@ Other scripts, run from the repository root:
 
 ## Using the engine in your own game
 
+GitHub Packages needs two lines in an `.npmrc` file in your project, even for public packages. The token is a GitHub personal access token (classic) with the `read:packages` scope.
+
+```ini
+@doz6x9:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+Then install it with PixiJS:
+
 ```bash
-npm install web-based-2d-game-engine-framework pixi.js
+npm install @doz6x9/web-based-2d-game-engine-framework pixi.js
 ```
 
 ```ts
-import { GameEngine, Vector } from 'web-based-2d-game-engine-framework';
+import { GameEngine, Vector } from '@doz6x9/web-based-2d-game-engine-framework';
 
 const engine = new GameEngine();
 await engine.initWithOptions({
