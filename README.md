@@ -144,7 +144,7 @@ GitHub Packages needs two lines in an `.npmrc` file in your project, even for pu
 Then install it with PixiJS:
 
 ```bash
-npm install @doz6x9/web-based-2d-game-engine-framework pixi.js
+npm install @doz6x9/web-based-2d-game-engine-framework@^0.3.0 pixi.js
 ```
 
 ```ts
