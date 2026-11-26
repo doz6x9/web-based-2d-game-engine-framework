@@ -16,11 +16,11 @@ export class FloodFill {
    * Perform flood fill from a starting position
    * Returns set of reachable cells
    */
-  fillRoom(start: Vector): Set<string> {
+  fillRoom(start: Vector, maxCells: number = Infinity): Set<string> {
     const visited = new Set<string>();
     const queue: Vector[] = [start];
 
-    while (queue.length > 0) {
+    while (queue.length > 0 && visited.size < maxCells) {
       const current = queue.shift()!;
       const key = current.key();
 

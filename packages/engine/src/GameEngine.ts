@@ -16,6 +16,7 @@ import * as PIXI from 'pixi.js';
 
 export interface EngineLifecycleOptions {
   autoStart?: boolean;
+  /** Draw the clicked cell's coordinates on the canvas (left and right clicks are coloured differently). */
   showMouseCoordinates?: boolean;
 }
 
@@ -113,6 +114,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
   public lighting: LightingSystem;
 
   private entities: Map<string, IEntity> = new Map();
+  private spawnPoint: Vector | null = null;
   private gameTime: number = 0;
   public isRunning: boolean = false; // Made public for game to control
   private boundGameLoop = this.pixiGameLoop.bind(this);
@@ -153,9 +155,8 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     await this.renderer.init(canvas, canvasWidth, canvasHeight, this.grid.getWidth(), this.grid.getHeight());
 
     // Initialize handlers
-    this.mouseHandler = new MouseHandler(canvas, this.renderer.getCamera(), this.renderer.tileSize, {
-      showCoordinateOverlay: this.lifecycleOptions.showMouseCoordinates,
-    });
+    // Click coordinates are drawn on the canvas by the renderer, not by a DOM overlay.
+    this.mouseHandler = new MouseHandler(canvas, this.renderer.getCamera(), this.renderer.tileSize);
     this.fogOfWar = new FogOfWar(this.grid.getWidth(), this.grid.getHeight(), this.fov); // FogOfWar is engine-level
 
     // Load provided assets
@@ -234,6 +235,9 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
    */
   loadMapData(mapData: MapJSON): void {
     this.map = MapLoader.parseMapJSON(mapData);
+    // Match the grid to the map so nothing (paths, FOV, flood fill) runs off its edge
+    // and no cells are left over from a previous, larger map.
+    this.grid.resize(this.map.getWidth(), this.map.getHeight());
 
     const collisionLayer = this.map.getLayerByName('collision');
     const terrainLayer = this.map.getLayerByName('terrain');
@@ -254,6 +258,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
 
     this.fogOfWar = new FogOfWar(this.map.getWidth(), this.map.getHeight(), this.fov);
     this.lighting.markDirty();
+    this.spawnPoint = this.resolveSpawnPoint(mapData);
     this.renderer.getCamera().mapWidth = this.map.getWidth();
     this.renderer.getCamera().mapHeight = this.map.getHeight();
 
@@ -262,14 +267,63 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
   }
 
   /**
+   * Where the player should start on the current map: the PLAYER_SPAWN object
+   * if it is on a walkable cell, otherwise the nearest walkable cell to it
+   * (or to the map origin when the map has no spawn). Null before a map loads.
+   */
+  public getSpawnPoint(): Vector | null {
+    return this.spawnPoint ? this.spawnPoint.clone() : null;
+  }
+
+  private resolveSpawnPoint(mapData: MapJSON): Vector | null {
+    if (!this.map) return null;
+    const objects = (mapData.objects ?? []) as Array<{ type?: unknown; x?: unknown; y?: unknown }>;
+    const spawn = objects.find((o) => o && o.type === 'PLAYER_SPAWN' && typeof o.x === 'number' && typeof o.y === 'number');
+    const preferred = spawn ? new Vector(spawn.x as number, spawn.y as number) : new Vector(0, 0);
+
+    const width = this.map.getWidth();
+    const height = this.map.getHeight();
+    const x0 = Math.min(Math.max(0, preferred.x), width - 1);
+    const y0 = Math.min(Math.max(0, preferred.y), height - 1);
+
+    // Search outward ring by ring for the closest walkable cell.
+    const maxRadius = Math.max(width, height);
+    for (let r = 0; r <= maxRadius; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const cell = this.grid.getCell(x0 + dx, y0 + dy);
+          if (cell && cell.walkable) return new Vector(x0 + dx, y0 + dy);
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Reveal the room that contains `start` (every walkable cell reachable from it
+   * without crossing a wall or closed door) by marking it explored in Fog of War.
+   * Call it when a door opens, passing the cell just beyond the door.
+   * Returns the revealed cells.
+   */
+  public revealRoom(start: Vector, maxCells: number = 400): Set<string> {
+    const cells = this.floodFill.fillRoom(start, maxCells);
+    this.fogOfWar?.markMultipleExplored(cells);
+    this.lighting.markDirty();
+    return cells;
+  }
+
+  /**
    * Setup input handlers to emit decoupled engine events
    */
   private setupInputHandlers(): void {
     this.mouseHandler.on(MouseEventType.LEFT_CLICK, (pos: Vector) => {
+      if (this.lifecycleOptions.showMouseCoordinates) this.renderer.showClickCoordinates(pos.x, pos.y, 'left');
       this.emit('gridClick', pos.x, pos.y, 'left');
     });
 
     this.mouseHandler.on(MouseEventType.RIGHT_CLICK, (pos: Vector) => {
+      if (this.lifecycleOptions.showMouseCoordinates) this.renderer.showClickCoordinates(pos.x, pos.y, 'right');
       this.emit('gridClick', pos.x, pos.y, 'right');
     });
 

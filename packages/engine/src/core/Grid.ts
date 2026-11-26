@@ -62,6 +62,18 @@ export class Grid {
   }
 
   /**
+   * Resize the grid and reset every cell to walkable grass.
+   * Called when a map loads so pathfinding, FOV and flood fill
+   * never wander past the map edge.
+   */
+  resize(width: number, height: number): void {
+    this.width = width;
+    this.height = height;
+    this.cells.clear();
+    this.initializeCells();
+  }
+
+  /**
    * Get a cell by coordinates
    */
   getCell(x: number, y: number): Cell | undefined {

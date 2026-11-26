@@ -94,6 +94,9 @@ export class Renderer {
   private fogGraphics!: PIXI.Graphics;
   private fovGraphics!: PIXI.Graphics;
   private markerGraphics!: PIXI.Graphics;
+  private clickLabelContainer!: PIXI.Container;
+  private clickLabels: Array<{ node: PIXI.Container; createdAt: number }> = [];
+  private static readonly CLICK_LABEL_MS = 1500;
 
   private fallbackTexture!: PIXI.Texture;
 
@@ -133,6 +136,9 @@ export class Renderer {
     this.worldContainer.addChild(this.fogContainer);
     this.worldContainer.addChild(this.fovContainer);
     this.worldContainer.addChild(this.markerContainer);
+    this.clickLabelContainer = new PIXI.Container();
+    this.worldContainer.addChild(this.clickLabelContainer);
+    this.app.ticker.add(() => this.fadeClickLabels());
 
     this.stage.addChild(this.worldContainer);
     this.stage.addChild(this.hudContainer);
@@ -258,9 +264,9 @@ export class Renderer {
       for (let x = 0; x < mapWidth; x++) {
         const fogState = fogOfWar.getFogState(x, y);
         if (fogState === FogState.UNKNOWN) {
-          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.8 });
+          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 1 });
         } else if (fogState === FogState.EXPLORED) {
-          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x000000, alpha: 0.5 });
+          this.fogGraphics.rect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize).fill({ color: 0x1a1a1a, alpha: 0.65 });
         }
       }
     }
@@ -401,6 +407,50 @@ export class Renderer {
       graphics.rotation = particle.rotation;
       this.particleContainer.addChild(graphics);
     }
+  }
+
+  /**
+   * Draw the clicked cell's coordinates on the canvas.
+   * Left clicks are outlined in green, right clicks in orange.
+   * Each label fades out after a short time.
+   */
+  showClickCoordinates(x: number, y: number, button: 'left' | 'right'): void {
+    const color = button === 'left' ? 0x52c41a : 0xfa8c16;
+    const node = new PIXI.Container();
+
+    const outline = new PIXI.Graphics();
+    outline.rect(0, 0, this.tileSize, this.tileSize).stroke({ color, width: 2 });
+    node.addChild(outline);
+
+    const text = new PIXI.Text({
+      text: `${button === 'left' ? 'L' : 'R'} (${x}, ${y})`,
+      style: { fontFamily: 'monospace', fontSize: 12, fontWeight: 'bold', fill: color },
+    });
+    const background = new PIXI.Graphics();
+    background.roundRect(0, 0, text.width + 8, text.height + 4, 3).fill({ color: 0x000000, alpha: 0.75 });
+    background.y = -text.height - 6;
+    text.x = 4;
+    text.y = background.y + 2;
+    node.addChild(background, text);
+
+    node.x = x * this.tileSize;
+    node.y = y * this.tileSize;
+    this.clickLabelContainer.addChild(node);
+    this.clickLabels.push({ node, createdAt: performance.now() });
+  }
+
+  private fadeClickLabels(): void {
+    if (this.clickLabels.length === 0) return;
+    const now = performance.now();
+    this.clickLabels = this.clickLabels.filter(({ node, createdAt }) => {
+      const age = now - createdAt;
+      if (age >= Renderer.CLICK_LABEL_MS) {
+        node.destroy({ children: true });
+        return false;
+      }
+      node.alpha = age < Renderer.CLICK_LABEL_MS * 0.6 ? 1 : 1 - (age - Renderer.CLICK_LABEL_MS * 0.6) / (Renderer.CLICK_LABEL_MS * 0.4);
+      return true;
+    });
   }
 
   updateSpritePosition(sprite: PIXI.Sprite, x: number, y: number): void {

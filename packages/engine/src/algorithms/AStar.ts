@@ -38,6 +38,7 @@ export class AStarPathfinder {
   private openSet: Set<string> = new Set();
   private closedSet: Set<string> = new Set();
   private nodeMap: Map<string, AStarNode> = new Map();
+  private minStepCost = 1;
 
   constructor(grid: Grid) {
     this.grid = grid;
@@ -53,6 +54,7 @@ export class AStarPathfinder {
     this.openSet.clear();
     this.closedSet.clear();
     this.nodeMap.clear();
+    this.minStepCost = this.computeMinStepCost();
 
     const startNode = new AStarNode(start);
     startNode.g = 0;
@@ -132,10 +134,25 @@ export class AStarPathfinder {
   }
 
   /**
-   * Heuristic function (Manhattan distance for 4-way movement)
+   * Heuristic: Manhattan distance scaled by the cheapest walkable step cost.
+   * Scaling keeps the estimate admissible (never above the true cost) when
+   * cheap terrain such as 0.5-cost roads exists, so A* still finds the
+   * cheapest path instead of a merely short one.
    */
   private heuristic(a: Vector, b: Vector): number {
-    return a.manhattanDistance(b);
+    return a.manhattanDistance(b) * this.minStepCost;
+  }
+
+  /** Lowest cost of any walkable cell, recomputed at the start of each search. */
+  private computeMinStepCost(): number {
+    let min = Infinity;
+    for (let y = 0; y < this.grid.getHeight(); y++) {
+      for (let x = 0; x < this.grid.getWidth(); x++) {
+        const cell = this.grid.getCell(x, y);
+        if (cell && cell.walkable && cell.cost < min) min = cell.cost;
+      }
+    }
+    return Number.isFinite(min) && min > 0 ? min : 1;
   }
 
   /**

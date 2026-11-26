@@ -106,6 +106,15 @@ engine.lighting.markDirty();                // call after changing walls or door
 
 Lights are cleared by `engine.clear()`. If no lights are registered, the engine leaves Fog of War alone so you can drive `engine.fov` yourself.
 
+## Spawn Points, Rooms and Click Coordinates
+
+- `engine.getSpawnPoint()` returns the map's `PLAYER_SPAWN` object. If that cell isn't walkable, or the map has no spawn, it returns the nearest walkable cell instead.
+- `engine.revealRoom(cell)` uses flood fill to mark every cell reachable from `cell` as explored. Call it with the cell just past a door when the door opens.
+- `initWithOptions({ ..., showMouseCoordinates: true })` draws the clicked cell's coordinates on the canvas: green for left clicks, orange for right clicks.
+- Fog of War draws unexplored cells fully black and explored cells that aren't currently lit as greyed out.
+- `AStarPathfinder` scales its heuristic by the cheapest walkable cell cost, so it still returns the cheapest path when roads cost less than 1.
+- The engine grid is resized to each map as it loads, so nothing runs past the map edge.
+
 ## Map Format
 
 Maps are JSON objects with named layers. A `terrain` layer defines tile types; an optional `collision` layer can override walkability.
