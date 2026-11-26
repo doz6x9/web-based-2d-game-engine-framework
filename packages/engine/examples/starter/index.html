@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Starter Game</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #111; color: #ddd; font: 14px system-ui, sans-serif; }
+      body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+      canvas { image-rendering: pixelated; max-width: 100%; border: 2px solid #333; }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="status">Right-click to walk. Left-click the door next to you to open it.</div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
