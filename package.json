@@ -1,19 +1,17 @@
 {
-  "name": "project-work-2",
+  "name": "web-based-2d-game-engine-framework-monorepo",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "typescript": "~6.0.2",
-    "vite": "^8.0.10"
-  },
-  "dependencies": {
-    "pixi.js": "^8.18.1",
-    "sass": "^1.99.0"
+    "build": "npm run build -w packages/engine && npm run build -w apps/demo",
+    "build:engine": "npm run build -w packages/engine",
+    "build:demo": "npm run build -w apps/demo",
+    "dev": "npm run build -w packages/engine && npm run dev -w apps/demo",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm test -w packages/engine"
   }
 }

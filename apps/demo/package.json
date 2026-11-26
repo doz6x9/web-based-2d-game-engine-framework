@@ -1,0 +1,26 @@
+{
+  "name": "demo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "atlas": "node scripts/pack-atlas.mjs",
+    "predev": "npm run atlas",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "npm run atlas",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/press-start-2p": "^5.3.0",
+    "pixi.js": "^8.18.1",
+    "web-based-2d-game-engine-framework": "^0.1.0"
+  },
+  "devDependencies": {
+    "pngjs": "^7.0.0",
+    "sass": "^1.99.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.10"
+  }
+}

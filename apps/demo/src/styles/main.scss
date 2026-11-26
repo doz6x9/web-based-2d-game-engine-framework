@@ -1,0 +1,685 @@
+/* 2D Web-Based Game Engine - Main Styles */
+
+// Generic Engine Variables
+$bg-color: #1e1e1e;
+$panel-bg: rgba(30, 30, 30, 0.85);
+$panel-border: #444;
+$text-main: #e0e0e0;
+$text-highlight: #ffffff;
+$health-red: #ff4d4f;
+
+$btn-bg: #2d2d2d;
+$btn-border: #555;
+$btn-hover: #404040;
+
+$font-main: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+$font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+body {
+  margin: 0;
+  background-color: $bg-color;
+  color: $text-main;
+  font-family: $font-main;
+  font-size: 16px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
+.game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+
+  canvas {
+    max-width: 100%;
+    max-height: 100vh;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    background-color: #111;
+    /* Removed pixelated image-rendering for a generic engine style */
+  }
+}
+
+.engine-panel {
+  background-color: $panel-bg;
+  border: 1px solid $panel-border;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  box-sizing: border-box;
+  backdrop-filter: blur(4px);
+
+  .panel-title {
+    color: $text-highlight;
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid $panel-border;
+    padding-bottom: 10px;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+}
+
+.hud-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 100;
+  padding: 20px;
+
+  .hud-element {
+    background-color: $panel-bg;
+    border: 1px solid $panel-border;
+    padding: 8px 16px;
+    border-radius: 6px;
+    pointer-events: auto;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .health-display {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: $health-red;
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+
+  .level-display {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: $text-highlight;
+    font-weight: 500;
+    font-size: 1.1rem;
+  }
+
+  .instructions-text {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.6);
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+
+  .menu-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    pointer-events: auto;
+
+    .hud-buttons {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      background-color: $panel-bg;
+      border: 1px solid $panel-border;
+      padding: 12px;
+      border-radius: 8px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+      &.open {
+        display: flex;
+      }
+    }
+  }
+
+  .dev-tools-wrapper {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .dev-tools-toggle {
+      background-color: $panel-bg;
+      border: 1px solid $panel-border;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      font-size: 0.9rem;
+      backdrop-filter: blur(4px);
+
+      input {
+        cursor: pointer;
+      }
+    }
+
+    .dev-tools-panel {
+      display: none;
+      font-family: $font-mono;
+      font-size: 0.9rem;
+      min-width: 220px;
+      padding: 16px;
+
+      &.open {
+        display: block;
+      }
+
+      .fps-counter {
+        color: #52c41a;
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+
+      div {
+        margin-bottom: 4px;
+      }
+    }
+  }
+}
+
+.engine-button {
+  font-family: $font-main;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  background-color: $btn-bg;
+  color: $text-main;
+  border: 1px solid $btn-border;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+
+  &:hover {
+    background-color: $btn-hover;
+    border-color: #666;
+    color: $text-highlight;
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &.btn-primary { background-color: #177ddc; border-color: #177ddc; color: #fff; }
+  &.btn-primary:hover { background-color: #40a9ff; border-color: #40a9ff; }
+
+  &.btn-success { background-color: #389e0d; border-color: #389e0d; color: #fff; }
+  &.btn-success:hover { background-color: #73d13d; border-color: #73d13d; }
+
+  &.btn-warning { background-color: #d46b08; border-color: #d46b08; color: #fff; }
+  &.btn-warning:hover { background-color: #ffa940; border-color: #ffa940; }
+
+  &.btn-danger { background-color: #cf1322; border-color: #cf1322; color: #fff; }
+  &.btn-danger:hover { background-color: #ff4d4f; border-color: #ff4d4f; }
+
+  &.bag-button {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    font-size: 1.5rem;
+    width: 50px;
+    height: 50px;
+    border-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+    padding: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.dialogue-box {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 700px;
+  display: none;
+  z-index: 1000;
+  pointer-events: auto;
+  cursor: pointer;
+
+  .dialogue-speaker {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #1890ff;
+    margin: 0 0 8px 0;
+  }
+
+  .dialogue-text {
+    font-size: 1.1rem;
+    line-height: 1.5;
+    margin: 0 0 16px 0;
+    color: $text-highlight;
+  }
+
+  .dialogue-prompt {
+    text-align: right;
+    font-size: 0.85rem;
+    color: #888;
+    animation: pulse 1.5s infinite alternate;
+  }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+.inventory-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 480px;
+  height: 80%;
+  max-height: 600px;
+  display: none;
+  z-index: 1001;
+  pointer-events: auto;
+  overflow-y: auto;
+
+  .inventory-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+
+    .inventory-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid $panel-border;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      transition: background-color 0.2s;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+  }
+
+  .close-prompt {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 16px;
+    border-top: 1px solid $panel-border;
+    padding-top: 16px;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: $bg-color;
+  border-left: 1px solid $panel-border;
+}
+::-webkit-scrollbar-thumb {
+  background: $btn-border;
+  border-radius: 4px;
+
+  &:hover {
+    background: #777;
+  }
+}
+
+// ---------------------------------------------------------------- retro theme
+$retro-font: 'Press Start 2P', $font-mono;
+$retro-gold: #f8d030;
+
+body,
+.engine-button,
+.engine-panel,
+.hud-element {
+  font-family: $retro-font !important;
+  letter-spacing: 0.5px;
+}
+
+.engine-button,
+.engine-panel,
+.hud-element {
+  border-radius: 0 !important;
+  border: 3px solid #e0e0e0 !important;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6) !important;
+  background-color: #101018 !important;
+  font-size: 0.6rem !important;
+  text-transform: uppercase;
+}
+
+#gameCanvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.hud-overlay .health-display {
+  color: #f85858;
+  line-height: 1.8;
+
+  .hp-bar {
+    width: 140px;
+    height: 10px;
+    border: 2px solid #e0e0e0;
+    background: #401818;
+    margin: 4px 0 6px;
+  }
+
+  .hp-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: #f85858;
+    transition: width 0.2s steps(4);
+  }
+
+  .score-display {
+    color: $retro-gold;
+  }
+
+  .keys-display {
+    color: #78c8f8;
+  }
+}
+
+.dialogue-box .dialogue-text,
+.dialogue-box .dialogue-speaker {
+  font-size: 0.65rem !important;
+  line-height: 1.8 !important;
+}
+
+.message-log {
+  position: absolute;
+  left: 20px;
+  bottom: 70px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.55rem;
+  line-height: 1.9;
+  color: #e0e0e0;
+  text-shadow: 2px 2px 0 #000;
+  pointer-events: none;
+
+  li:last-child {
+    color: $retro-gold;
+  }
+}
+
+.instructions-text {
+  font-size: 0.55rem !important;
+}
+
+.end-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: rgba(0, 0, 0, 0.82);
+  pointer-events: auto;
+  z-index: 2000;
+  text-align: center;
+
+  &.open {
+    display: flex;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 2rem;
+    color: #f85858;
+    text-shadow: 4px 4px 0 #000;
+  }
+
+  &.win h1 {
+    color: $retro-gold;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #e0e0e0;
+  }
+
+  .engine-button {
+    padding: 14px 20px;
+    cursor: pointer;
+    color: #e0e0e0;
+  }
+}
+
+.hud-overlay .dev-tools-wrapper .dev-tools-toggle {
+  font-size: 0.55rem;
+  border-radius: 0;
+  border: 3px solid #e0e0e0;
+  background-color: #101018;
+}
+
+.hud-overlay .bag-button {
+  font-size: 1.3rem !important;
+}
+
+// Keep the stats panel to one thin row so it never covers the hero near the map's top edge.
+.hud-overlay .health-display {
+  top: 12px !important;
+  left: 12px !important;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px !important;
+  line-height: 1;
+  background-color: rgba(16, 16, 24, 0.85) !important;
+
+  .hp-bar {
+    width: 90px;
+    margin: 0;
+  }
+}
+
+.hud-overlay .level-display,
+.hud-overlay .menu-container {
+  top: 12px !important;
+}
+
+.hud-overlay .level-display {
+  padding: 6px 10px !important;
+  background-color: rgba(16, 16, 24, 0.85) !important;
+}
+
+// ------------------------------------------------------------ side panel layout
+// The map gets the left side; quest, controls and the message log live in a
+// panel on the right so text never sits on top of the map.
+$side-panel-width: 300px;
+
+.game-container {
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.game-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+
+  canvas {
+    max-width: 100%;
+    max-height: 100vh;
+  }
+}
+
+.side-panel {
+  flex: 0 0 $side-panel-width;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background-color: #101018;
+  border-left: 4px solid #e0e0e0;
+  font-family: $retro-font;
+  overflow: hidden;
+
+  section {
+    border: 3px solid #e0e0e0;
+    padding: 12px;
+    background-color: #181824;
+  }
+
+  h2 {
+    margin: 0 0 10px;
+    font-size: 0.65rem;
+    color: $retro-gold;
+    letter-spacing: 1px;
+  }
+
+  p,
+  li {
+    margin: 0;
+    font-size: 0.55rem;
+    line-height: 1.9;
+    color: #e0e0e0;
+  }
+
+  .controls-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    .key {
+      display: inline-block;
+      min-width: 72px;
+      color: #78c8f8;
+    }
+  }
+
+  .log-section {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  // The log is a normal list here, not an overlay on the canvas.
+  .message-log {
+    position: static;
+    text-shadow: none;
+
+    li {
+      padding: 2px 0;
+      border-bottom: 1px dashed #303040;
+    }
+  }
+}
+
+// Narrow screens: stack the panel under the map and let the page scroll.
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  .game-container {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .game-stage canvas {
+    max-height: 70vh;
+  }
+
+  .side-panel {
+    flex-basis: auto;
+    border-left: none;
+    border-top: 4px solid #e0e0e0;
+
+    .log-section {
+      max-height: 40vh;
+    }
+  }
+}
+
+.side-panel .level-section p {
+  font-size: 0.65rem;
+  color: #ffffff;
+}
+
+@media (max-width: 900px) {
+  .hud-overlay .health-display {
+    flex-wrap: wrap;
+    max-width: calc(100% - 150px);
+    font-size: 0.5rem !important;
+    gap: 6px 10px;
+
+    .hp-bar {
+      width: 80px;
+    }
+  }
+}
+
+// ------------------------------------------------------------ canvas frame
+// The frame wraps the canvas and the HUD overlay and is sized from JS
+// (fitCanvas.ts) to the canvas's aspect ratio, so the HUD sits on the map.
+.game-stage {
+  overflow: hidden;
+}
+
+.canvas-frame {
+  position: relative;
+  flex: 0 0 auto;
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none;
+    max-height: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .game-stage {
+    min-height: 0;
+  }
+}
+
+// The stats bar only shows information, so clicks pass through to the map.
+.hud-overlay .health-display {
+  pointer-events: none;
+}
