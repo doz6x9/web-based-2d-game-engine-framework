@@ -14,7 +14,7 @@ export { Grid, CellType, type Cell } from './core/Grid';
 export { MapObject, MapObjectType } from './core/MapObject';
 export { TileRegistry, TileType, type TileDefinition } from './core/TileRegistry';
 
-export { GameMap, MapLayer, MapLoader, type MapJSON, type MapLayerJSON } from './map/MapLayer';
+export { GameMap, MapLayer, MapLoader, type MapJSON, type MapLayerJSON, type MapLayerNames, type MapLayerRole } from './map/MapLayer';
 
 export { AStarPathfinder } from './algorithms/AStar';
 export { FieldOfView, type CellVisibility, type LightSource } from './algorithms/FieldOfView';

@@ -261,7 +261,7 @@ export class Renderer {
       let zIndex = 0;
       for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
-        if (layer.getName() === 'collision') continue;
+        if (layer.getRole() === 'collision') continue;
 
         const layerContainer = new PIXI.Container();
         // Insert at the specific zIndex (before dynamic containers)
@@ -276,19 +276,17 @@ export class Renderer {
     const endX = Math.min(map.getWidth(), Math.ceil(cameraPos.x + this.camera.getViewWidthInTiles()) + 2);
     const endY = Math.min(map.getHeight(), Math.ceil(cameraPos.y + this.camera.getViewHeightInTiles()) + 2);
 
-    let isBaseLayer = true;
     for (let i = 0; i < layers.length; i++) {
       const layer = layers[i];
-      if (layer.getName() === 'collision') continue;
+      if (layer.getRole() === 'collision') continue;
 
       const container = this.layers.get(`layer-${i}`);
       if (!container) continue;
 
       const data = layer.getData();
       let childIndex = 0;
-      // Tile 0 is a real tile (grass) on the base layer, but means "empty" on overlay layers.
-      const skipZeroTiles = !isBaseLayer;
-      isBaseLayer = false;
+      // Tile 0 is a real tile (grass) on the ground layer, but means "empty" on overlay layers.
+      const skipZeroTiles = layer.getRole() !== 'ground';
 
       for (let y = startY; y < endY; y++) {
         for (let x = startX; x < endX; x++) {
