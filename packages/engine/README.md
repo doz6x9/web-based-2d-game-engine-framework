@@ -42,10 +42,17 @@ GitHub Packages needs two lines in an `.npmrc` file in your project, even for pu
 Then install it with PixiJS:
 
 ```bash
-npm install @doz6x9/web-based-2d-game-engine-framework pixi.js
+npm install @doz6x9/web-based-2d-game-engine-framework@^0.3.0 pixi.js
 ```
 
 PixiJS is a peer dependency so host applications can control their renderer version.
+
+### What's new in 0.3.0
+
+- Symmetric recursive shadowcasting over all eight octants (`fov.calculateFOV(source, radius, 'shadowcast')`), and no light through diagonal wall gaps in either algorithm.
+- Map layers have roles (ground, collision, overlay). Name them in the map, on the layer, or with the `layerNames` engine option; overlay layers such as decor draw between the ground and entities.
+- `TileRegistry` is the single source of tile walkability and cost.
+- 61 unit tests.
 
 ## Quick Start
 
