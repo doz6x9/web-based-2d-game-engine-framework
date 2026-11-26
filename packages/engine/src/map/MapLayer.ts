@@ -8,18 +8,27 @@
  */
 export type MapLayerRole = 'ground' | 'collision' | 'overlay';
 
+/** One layer of a JSON map. */
 export interface MapLayerJSON {
+  /** Layer name, used to find the ground and collision layers. */
   name?: string;
   /** Optional. When left out, the role comes from the map's layer names (see MapJSON). */
   role?: MapLayerRole;
+  /** Tile ids, as rows (`data[y][x]`) or as one flat row-major array of `width × height` values. */
   data?: number[] | number[][];
 }
 
+/** A map as stored in a JSON file. Layers are drawn bottom-up in array order. */
 export interface MapJSON {
+  /** Display name of the map. */
   name?: string;
+  /** Width in cells. Defaults to the width of the first layer. */
   width?: number;
+  /** Height in cells. Defaults to the height of the first layer. */
   height?: number;
+  /** Layers, bottom to top. */
   layers?: MapLayerJSON[];
+  /** Game-defined objects (spawns, items, doors, lights). The engine only reads `PLAYER_SPAWN`; the rest are passed on in the `mapLoaded` event. */
   objects?: unknown[];
   /** Name of the ground layer. Defaults to "terrain", then the first non-collision layer. */
   groundLayer?: string;
@@ -29,7 +38,9 @@ export interface MapJSON {
 
 /** Layer names to use when a map does not say which layer is which. */
 export interface MapLayerNames {
+  /** Name of the ground layer. */
   ground?: string;
+  /** Name of the collision layer. */
   collision?: string;
 }
 
@@ -62,6 +73,7 @@ export class MapLayer {
     return this.role;
   }
 
+  /** Change what this layer is for. Set the role before the map is rendered. */
   setRole(role: MapLayerRole): void {
     this.role = role;
   }
@@ -90,6 +102,7 @@ export class MapLayer {
     return this.width;
   }
 
+  /** Returns Layer height in cells. */
   getHeight(): number {
     return this.height;
   }
@@ -160,6 +173,7 @@ export class GameMap {
     return this.width;
   }
 
+  /** Returns Map height in cells. */
   getHeight(): number {
     return this.height;
   }

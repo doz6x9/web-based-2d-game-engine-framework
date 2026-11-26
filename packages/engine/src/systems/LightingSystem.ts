@@ -8,7 +8,9 @@ import type { FogOfWar } from '../algorithms/FogOfWar';
  * by sharing that entity's Vector.
  */
 export interface Light {
+  /** Unique id, used to remove, look up or toggle the light. */
   id: string;
+  /** Cell the light sits on. Share an entity's Vector to make the light follow it. */
   position: Vector;
   /** Radius in grid cells. */
   radius: number;
@@ -36,25 +38,33 @@ export class LightingSystem {
 
   constructor(private fov: FieldOfView) {}
 
+  /** Add a light, or replace the light with the same id. */
   addLight(light: Light): void {
     this.lights.set(light.id, light);
     this.dirty = true;
   }
 
+  /**
+   * Remove a light.
+   * Returns True if a light was removed.
+   */
   removeLight(id: string): boolean {
     const removed = this.lights.delete(id);
     if (removed) this.dirty = true;
     return removed;
   }
 
+  /** Returns The light with this id, or undefined. */
   getLight(id: string): Light | undefined {
     return this.lights.get(id);
   }
 
+  /** Returns Every light, enabled or not. */
   getLights(): Light[] {
     return Array.from(this.lights.values());
   }
 
+  /** Turn a light on or off without removing it. */
   setEnabled(id: string, enabled: boolean): void {
     const light = this.lights.get(id);
     if (light && (light.enabled ?? true) !== enabled) {
@@ -63,6 +73,7 @@ export class LightingSystem {
     }
   }
 
+  /** Remove every light and forget the visible set. */
   clear(): void {
     this.lights.clear();
     this.visibleCells = new Set();
@@ -80,6 +91,7 @@ export class LightingSystem {
     return this.visibleCells;
   }
 
+  /** Returns True if at least one enabled light currently reaches cell (x, y). */
   isLit(x: number, y: number): boolean {
     return this.visibleCells.has(`${x},${y}`);
   }

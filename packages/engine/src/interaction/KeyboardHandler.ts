@@ -1,10 +1,16 @@
+/** Keyboard events a {@link KeyboardHandler} can report. */
 export enum KeyboardEventType {
   KEY_DOWN = 'keydown',
   KEY_UP = 'keyup',
 }
 
+/** Called with the `KeyboardEvent.code` of the key (for example `"KeyW"` or `"ArrowUp"`). */
 export type KeyboardCallback = (code: string) => void;
 
+/**
+ * Tracks pressed keys and forwards key events to listeners.
+ * It listens on `window` from construction until {@link KeyboardHandler.destroy} is called.
+ */
 export class KeyboardHandler {
   private listeners: Map<KeyboardEventType, Set<KeyboardCallback>> = new Map();
   private pressedKeys: Set<string> = new Set();

@@ -13,12 +13,20 @@ export enum MouseEventType {
  * Interface for camera coordinate conversion
  */
 export interface ICamera {
+  /** Canvas width in pixels. */
   width: number;
+  /** Canvas height in pixels. */
   height: number;
+  /**
+   * Convert a canvas pixel position to a grid cell.
+   * Returns The grid cell under that position.
+   */
   screenToWorld(screenX: number, screenY: number): Vector;
 }
 
+/** Options for {@link MouseHandler}. */
 export interface MouseHandlerOptions {
+  /** Show a small HTML overlay with the last clicked cell (debugging aid). Defaults to false. */
   showCoordinateOverlay?: boolean;
 }
 
@@ -215,6 +223,7 @@ export class MouseHandler {
     return this.mousePosition;
   }
 
+  /** Remove every DOM listener and the coordinate overlay. */
   destroy(): void {
     this.canvas.removeEventListener('mousedown', this.boundMouseDown);
     this.canvas.removeEventListener('mousemove', this.boundMouseMove);

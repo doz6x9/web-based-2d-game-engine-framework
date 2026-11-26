@@ -10,15 +10,20 @@ import { TileRegistry } from '../core/TileRegistry';
  */
 export class Camera {
   private position: Vector;
+  /** View width in pixels (the canvas width). */
   public width: number;
+  /** View height in pixels (the canvas height). */
   public height: number;
+  /** Map width in cells, used to stop scrolling at the map edges. */
   public mapWidth: number;
+  /** Map height in cells, used to stop scrolling at the map edges. */
   public mapHeight: number;
   private tileSize: number;
   /** Whole-number zoom factor. Integer steps keep pixel art crisp. */
   public zoom = 1;
   /** Screen-pixel offset used to centre a map that is smaller than the view. */
   public offsetX = 0;
+  /** Vertical screen-pixel offset, see {@link Camera.offsetX}. */
   public offsetY = 0;
 
   constructor(
@@ -71,10 +76,12 @@ export class Camera {
     return this.tileSize * this.zoom;
   }
 
+  /** Returns How many cells fit across the view at the current zoom (can be fractional). */
   getViewWidthInTiles(): number {
     return this.width / this.getScaledTileSize();
   }
 
+  /** Returns How many cells fit down the view at the current zoom (can be fractional). */
   getViewHeightInTiles(): number {
     return this.height / this.getScaledTileSize();
   }
@@ -125,7 +132,9 @@ export class Renderer {
   private stage!: PIXI.Container;
   private worldContainer!: PIXI.Container;
   private hudContainer!: PIXI.Container;
+  /** The camera that decides which part of the map is on screen. Created in `init`. */
   public camera!: Camera;
+  /** Unscaled tile size in pixels. Sprites and tiles are drawn at this size, then the world is scaled by the camera zoom. */
   public tileSize: number;
   private layers: Map<string, PIXI.Container> = new Map();
   private textures: Map<string, PIXI.Texture> = new Map();
@@ -206,10 +215,15 @@ export class Renderer {
     this.fallbackTexture = this.app.renderer.generateTexture(graphics);
   }
 
+  /** Kept for compatibility. The engine draws click coordinates with {@link Renderer.showClickCoordinates} instead. */
   public updateMouseHUD(x: number, y: number): void {
       // Intentionally left empty per decoupling rules
   }
 
+  /**
+   * Load textures and sprite sheets and register them by id.
+   * Images are registered under `id`; sprite sheets register every frame under its frame name.
+   */
   async loadAssets(assets: { id: string; path: string; type?: 'image' | 'spritesheet' }[]): Promise<void> {
     for (const asset of assets) {
       try {
@@ -239,10 +253,12 @@ export class Renderer {
     return names;
   }
 
+  /** Returns The texture, or undefined if it was never loaded. */
   getTexture(spriteId: string): PIXI.Texture | undefined {
     return this.textures.get(spriteId);
   }
 
+  /** Destroy the cached layer containers so the next {@link Renderer.renderMap} rebuilds them. Call it when switching maps. */
   clearMapCache(): void {
     for (const layer of this.layers.values()) {
         layer.destroy({ children: true });
@@ -331,6 +347,10 @@ export class Renderer {
     }
   }
 
+  /**
+   * Draw Fog of War over the map: unexplored cells in `fogStyle.unknownColor`,
+   * explored but unlit cells greyed out with `fogStyle.exploredColor`, visible cells clear.
+   */
   renderFogOfWar(fogOfWar: FogOfWar, mapWidth: number, mapHeight: number): void {
     // Rebuilding the fog geometry every frame is wasted work: only redraw when it changed.
     const style = this.fogStyle;
@@ -470,6 +490,7 @@ export class Renderer {
     }
   }
 
+  /** Draw a filled circle in the middle of a cell, for example to show a path. */
   drawMarker(x: number, y: number, color: number = 0xff0000, size: number = 8): void {
     this.markerGraphics.circle(
       x * this.tileSize + this.tileSize / 2,
@@ -478,10 +499,12 @@ export class Renderer {
     ).fill(color);
   }
 
+  /** Remove every marker drawn with {@link Renderer.drawMarker}. */
   clearMarkers(): void {
     this.markerGraphics.clear();
   }
 
+  /** Redraw all particles. Called by the engine every frame. */
   renderParticles(particles: Particle[]): void {
     this.particleContainer.removeChildren();
     for (const particle of particles) {
@@ -538,15 +561,21 @@ export class Renderer {
     });
   }
 
+  /** Move a sprite to a grid position. */
   updateSpritePosition(sprite: PIXI.Sprite, x: number, y: number): void {
     sprite.x = x * this.tileSize;
     sprite.y = y * this.tileSize;
   }
 
+  /** Returns The container that holds entity sprites. It sits above the map layers and below the fog. */
   getSpriteContainer(): PIXI.Container {
     return this.spriteContainer;
   }
 
+  /**
+   * Create a sprite from a loaded texture, place it on a cell and add it to the sprite container.
+   * Returns The new sprite.
+   */
   public createSprite(textureId: string, x: number, y: number): PIXI.Sprite {
     const texture = this.getTexture(textureId);
     if (!texture) throw new Error(`Renderer: Texture '${textureId}' not found.`);
@@ -556,14 +585,18 @@ export class Renderer {
     return sprite;
   }
 
+  /** Remove a sprite from the sprite container and destroy it. */
   public removeSprite(sprite: PIXI.Sprite): void {
     this.spriteContainer.removeChild(sprite);
     sprite.destroy();
   }
 
+  /** Returns The camera. */
   getCamera(): Camera { return this.camera; }
+  /** Returns The underlying PixiJS application, for direct access to its ticker, stage or renderer. */
   getApp(): PIXI.Application { return this.app; }
 
+  /** Apply the camera's position, zoom and centring offset to the world container. Called by the engine every frame. */
   applyCameraTransform(): void {
     const cameraPos = this.camera.getPosition();
     const tile = this.camera.getScaledTileSize();
