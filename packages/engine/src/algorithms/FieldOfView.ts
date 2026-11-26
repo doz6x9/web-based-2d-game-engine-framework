@@ -41,7 +41,8 @@ export class FieldOfView {
    * Calculate FOV from a single light source with optional intensity falloff
    * @param source Light source position
    * @param radius FOV radius in grid cells
-   * @param algorithm 'raycast' (fast) or 'shadowcast' (accurate, slower)
+   * @param algorithm 'raycast' casts rays in every direction; 'shadowcast' uses recursive
+   *   shadowcasting over 8 octants, which is exact and leaves no gaps between rays
    */
   calculateFOV(source: Vector, radius: number, algorithm: 'raycast' | 'shadowcast' = 'raycast'): Set<string> {
     this.visibleCells.clear();
@@ -57,7 +58,7 @@ export class FieldOfView {
     });
 
     if (algorithm === 'shadowcast') {
-      this.calculateSymmetricShadowcast(source, radius);
+      this.calculateShadowcast(source, radius);
     } else {
       this.calculateRaycast(source, radius);
     }
@@ -103,6 +104,13 @@ export class FieldOfView {
       if (gridX === lastGridX && gridY === lastGridY) continue;
       if (!this.grid.isInBounds(gridX, gridY)) break;
 
+      // A diagonal step squeezes between two cells. If both are walls, the gap is
+      // closed and light must not leak through it.
+      if (!blocked && lastGridX !== -1 && gridX !== lastGridX && gridY !== lastGridY &&
+          this.isOpaque(lastGridX, gridY) && this.isOpaque(gridX, lastGridY)) {
+        break;
+      }
+
       lastGridX = gridX;
       lastGridY = gridY;
       const cellKey = `${gridX},${gridY}`;
@@ -143,57 +151,131 @@ export class FieldOfView {
   }
 
   /**
-   * Symmetric Shadowcasting algorithm for more accurate FOV
-   * Better at handling obstacles and shadows
+   * Recursive symmetric shadowcasting (Albert Ford's variant of Bergström's
+   * algorithm), run over 8 octants: each of the 4 quadrants below is scanned
+   * out to both of its sides, one row at a time, moving away from the source.
+   *
+   * - A wall narrows the range of slopes later rows can see, so the cells
+   *   behind it fall into shadow. Walls themselves are visible.
+   * - A floor cell is visible only if its centre lies inside the visible
+   *   range. This makes the result symmetric: if A can see B, B can see A.
+   * - Cells further than `radius` (Euclidean) are not visible.
    */
-  private calculateSymmetricShadowcast(source: Vector, radius: number): void {
-    const visited = new Set<string>();
-    const queue: Array<{ x: number; y: number; distance: number }> = [];
+  private calculateShadowcast(source: Vector, radius: number): void {
+    for (let quadrant = 0; quadrant < 4; quadrant++) {
+      this.scanRow(source, radius, quadrant, 1, -1, 1);
+    }
+    this.removeCornerLeaks(source, radius);
+  }
 
-    queue.push({ x: source.x, y: source.y, distance: 0 });
+  /**
+   * Shadowcasting lets a sight line slip between two walls that only touch at a
+   * corner. This removes every cell that can only be reached that way: a cell
+   * stays visible if light can step towards it from the source through open
+   * cells, without squeezing diagonally between two walls. The check runs the
+   * same way from either end, so the result stays symmetric.
+   */
+  private removeCornerLeaks(source: Vector, radius: number): void {
+    const r = Math.ceil(radius);
+    const size = 2 * r + 1;
+    const open = new Uint8Array(size * size); // 1 = light can reach this cell
+    const idx = (dx: number, dy: number) => (dy + r) * size + (dx + r);
+    const reached = (dx: number, dy: number) => open[idx(dx, dy)] === 1;
+    const clear = (dx: number, dy: number) => !this.isOpaque(source.x + dx, source.y + dy);
 
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-
-      if (visited.has(`${current.x},${current.y}`)) continue;
-      visited.add(`${current.x},${current.y}`);
-
-      const distance = current.distance;
-      if (distance > radius) continue;
-
-      const cell = this.grid.getCell(current.x, current.y);
-      if (!cell) continue;
-
-      // Check line of sight from source to current
-      const hasLOS = this.hasLineOfSight(source, new Vector(current.x, current.y));
-
-      if (hasLOS) {
-        this.visibleCells.add(`${current.x},${current.y}`);
-        const intensity = Math.max(0.3, 1 - distance / (radius + 1));
-        this.cellVisibility.set(`${current.x},${current.y}`, {
-          intensity,
-          isBlocked: false,
-          distances: new Map([[0, distance]])
-        });
-
-        // Add neighbors to queue
-        const neighbors = this.grid.getNeighbors(current.x, current.y, true);
-        for (const neighbor of neighbors) {
-          if (!visited.has(neighbor.key())) {
-            queue.push({ x: neighbor.x, y: neighbor.y, distance: distance + 1 });
-          }
+    open[idx(0, 0)] = 1;
+    for (let manhattan = 1; manhattan <= 2 * r; manhattan++) {
+      for (let dx = -Math.min(r, manhattan); dx <= Math.min(r, manhattan); dx++) {
+        const rest = manhattan - Math.abs(dx);
+        if (rest > r) continue;
+        for (const dy of rest === 0 ? [0] : [-rest, rest]) {
+          const sx = Math.sign(dx);
+          const sy = Math.sign(dy);
+          // Light arrives from a nearer neighbour that it reached and could pass through.
+          const viaX = sx !== 0 && reached(dx - sx, dy) && clear(dx - sx, dy);
+          const viaY = sy !== 0 && reached(dx, dy - sy) && clear(dx, dy - sy);
+          const viaDiagonal = sx !== 0 && sy !== 0 && reached(dx - sx, dy - sy) && clear(dx - sx, dy - sy) &&
+            (clear(dx - sx, dy) || clear(dx, dy - sy));
+          if (viaX || viaY || viaDiagonal) open[idx(dx, dy)] = 1;
         }
-      } else if (!cell.walkable) {
-        // Wall blocking vision
-        this.shadowCells.add(`${current.x},${current.y}`);
+      }
+    }
+
+    for (const key of Array.from(this.visibleCells)) {
+      const [x, y] = key.split(',').map(Number);
+      const dx = x - source.x;
+      const dy = y - source.y;
+      if (Math.abs(dx) > r || Math.abs(dy) > r || !reached(dx, dy)) {
+        this.visibleCells.delete(key);
+        this.shadowCells.delete(key);
+        this.cellVisibility.delete(key);
       }
     }
   }
 
-  /**
-   * Check line of sight using Bresenham's line algorithm
-   */
-  private hasLineOfSight(from: Vector, to: Vector): boolean {
+  /** Maps (row depth, column) inside a quadrant to grid coordinates. */
+  private static toGrid(source: Vector, quadrant: number, depth: number, col: number): [number, number] {
+    switch (quadrant) {
+      case 0: return [source.x + col, source.y - depth];   // north
+      case 1: return [source.x + depth, source.y + col];   // east
+      case 2: return [source.x + col, source.y + depth];   // south
+      default: return [source.x - depth, source.y + col];  // west
+    }
+  }
+
+  private scanRow(
+    source: Vector, radius: number, quadrant: number,
+    depth: number, startSlope: number, endSlope: number
+  ): void {
+    if (depth > radius) return;
+    const EPS = 1e-9;
+    const minCol = Math.floor(depth * startSlope + 0.5);
+    const maxCol = Math.ceil(depth * endSlope - 0.5);
+    let start = startSlope;
+    let prevWasWall: boolean | null = null;
+
+    for (let col = minCol; col <= maxCol; col++) {
+      const [x, y] = FieldOfView.toGrid(source, quadrant, depth, col);
+      const wall = this.isOpaque(x, y);
+      const centreInside = col >= depth * start - EPS && col <= depth * endSlope + EPS;
+
+      if (wall || centreInside) this.markVisible(source, x, y, radius, wall);
+
+      if (prevWasWall === true && !wall) {
+        // Leaving a wall: the visible range now starts at this cell's near edge.
+        start = (2 * col - 1) / (2 * depth);
+      }
+      if (prevWasWall === false && wall) {
+        // Hitting a wall: scan the next row up to this wall's near edge.
+        this.scanRow(source, radius, quadrant, depth + 1, start, (2 * col - 1) / (2 * depth));
+      }
+      prevWasWall = wall;
+    }
+    if (prevWasWall === false) this.scanRow(source, radius, quadrant, depth + 1, start, endSlope);
+  }
+
+  private markVisible(source: Vector, x: number, y: number, radius: number, wall: boolean): void {
+    if (!this.grid.isInBounds(x, y)) return;
+    const distSq = (x - source.x) ** 2 + (y - source.y) ** 2;
+    if (distSq > radius * radius) return;
+    const key = `${x},${y}`;
+    const d = Math.sqrt(distSq);
+    this.visibleCells.add(key);
+    if (wall) this.shadowCells.add(key);
+    this.cellVisibility.set(key, {
+      intensity: Math.max(0.3, 1 - d / (radius + 1)),
+      isBlocked: false,
+      distances: new Map([[0, d]]),
+    });
+  }
+
+  /** Walls, water and anything else that isn't walkable block light. */
+  private isOpaque(x: number, y: number): boolean {
+    const cell = this.grid.getCell(x, y);
+    return !cell || !cell.walkable;
+  }
+
+    private hasLineOfSight(from: Vector, to: Vector): boolean {
     const cells = this.bresenhamLine(from, to);
 
     for (let i = 0; i < cells.length - 1; i++) {

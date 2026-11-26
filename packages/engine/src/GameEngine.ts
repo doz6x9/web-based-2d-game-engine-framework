@@ -1,11 +1,10 @@
 import { Vector } from './core/Vector';
 import { Grid, CellType } from './core/Grid';
-import { GameMap, MapLoader, type MapJSON } from './map/MapLayer';
+import { GameMap, MapLoader, type MapJSON, type MapLayerNames } from './map/MapLayer';
 import { AStarPathfinder } from './algorithms/AStar';
 import { FieldOfView } from './algorithms/FieldOfView';
 import { FogOfWar } from './algorithms/FogOfWar';
 import { FloodFill } from './algorithms/FloodFill';
-import { TileRegistry } from './core/TileRegistry';
 import { Renderer } from './render/Renderer';
 import { MouseHandler, MouseEventType } from './interaction/MouseHandler';
 import { KeyboardHandler } from './interaction/KeyboardHandler';
@@ -30,6 +29,12 @@ export interface EngineLifecycleOptions {
    * Defaults to false.
    */
   fitCanvasToMap?: boolean;
+  /**
+   * Which layers are the ground and collision layers when a map doesn't say so
+   * itself (with a layer `role` or the map's `groundLayer` / `collisionLayer`).
+   * Defaults to "terrain" and "collision".
+   */
+  layerNames?: MapLayerNames;
 }
 
 export interface EngineInitOptions extends EngineLifecycleOptions {
@@ -143,6 +148,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     showMouseCoordinates: false,
     fitMapToView: true,
     fitCanvasToMap: false,
+    layerNames: {},
   };
   /** Canvas size passed to init; the upper bound when fitting the canvas to a map. */
   private maxCanvasSize = { width: 0, height: 0 };
@@ -159,8 +165,6 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
     this.animationLibrary = new AnimationLibrary();
     this.particleSystem = new ParticleSystem();
     this.lighting = new LightingSystem(this.fov);
-
-    TileRegistry.initialize();
   }
 
   /**
@@ -230,6 +234,7 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
       showMouseCoordinates: options.showMouseCoordinates ?? this.lifecycleOptions.showMouseCoordinates,
       fitMapToView: options.fitMapToView ?? this.lifecycleOptions.fitMapToView,
       fitCanvasToMap: options.fitCanvasToMap ?? this.lifecycleOptions.fitCanvasToMap,
+      layerNames: options.layerNames ?? this.lifecycleOptions.layerNames,
     };
   }
 
@@ -261,24 +266,19 @@ export class GameEngine extends EventEmitter<EngineEventMap> {
    * Load a map from already parsed JSON data.
    */
   loadMapData(mapData: MapJSON): void {
-    this.map = MapLoader.parseMapJSON(mapData);
+    this.map = MapLoader.parseMapJSON(mapData, this.lifecycleOptions.layerNames);
     // Match the grid to the map so nothing (paths, FOV, flood fill) runs off its edge
     // and no cells are left over from a previous, larger map.
     this.grid.resize(this.map.getWidth(), this.map.getHeight());
 
-    const collisionLayer = this.map.getLayerByName('collision');
-    const terrainLayer = this.map.getLayerByName('terrain');
-
-    if (collisionLayer && terrainLayer) {
-      const cData = collisionLayer.getData();
-      const tData = terrainLayer.getData();
-      for (let y = 0; y < cData.length; y++) {
-        for (let x = 0; x < cData[y].length; x++) {
-          if (cData[y][x] !== 0) {
-             this.grid.setCellType(x, y, cData[y][x] as CellType);
-          } else {
-             this.grid.setCellType(x, y, tData[y][x] as CellType);
-          }
+    // The ground layer sets each cell's tile; a non-zero collision value overrides it.
+    const ground = this.map.getGroundLayer()?.getData();
+    const collision = this.map.getCollisionLayer()?.getData();
+    if (ground) {
+      for (let y = 0; y < ground.length; y++) {
+        for (let x = 0; x < ground[y].length; x++) {
+          const blocked = collision?.[y]?.[x] ?? 0;
+          this.grid.setCellType(x, y, (blocked !== 0 ? blocked : ground[y][x]) as CellType);
         }
       }
     }
