@@ -5,7 +5,7 @@ import {
   type AssetConfig,
   type IEntity,
   type MapJSON,
-} from 'web-based-2d-game-engine-framework';
+} from '@doz6x9/web-based-2d-game-engine-framework';
 import * as PIXI from 'pixi.js';
 import { Hud } from './Hud';
 import { fitCanvasToStage } from './fitCanvas';

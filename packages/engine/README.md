@@ -6,7 +6,7 @@ A modular TypeScript framework for browser-based 2D grid games, powered by PixiJ
 
 ## Where to Get It
 
-- **npm:** `npm install web-based-2d-game-engine-framework pixi.js`
+- **GitHub Packages:** `@doz6x9/web-based-2d-game-engine-framework` (see [Install](#install) for the one-time `.npmrc` setup)
 - **Engine source only:** the [`engineFramework`](https://github.com/doz6x9/web-based-2d-game-engine-framework/tree/engineFramework) branch. Clone it to work on the engine itself.
 - **Engine plus a playable demo game:** the [`main`](https://github.com/doz6x9/web-based-2d-game-engine-framework) branch, where the engine lives in `packages/engine` and the demo in `apps/demo`.
 
@@ -30,8 +30,19 @@ From the demo game on the `main` branch.
 
 ## Install
 
+The package is published to GitHub Packages as `@doz6x9/web-based-2d-game-engine-framework`.
+
+GitHub Packages needs two lines in an `.npmrc` file in your project, even for public packages. The token is a GitHub personal access token (classic) with the `read:packages` scope.
+
+```ini
+@doz6x9:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+Then install it with PixiJS:
+
 ```bash
-npm install web-based-2d-game-engine-framework pixi.js
+npm install @doz6x9/web-based-2d-game-engine-framework pixi.js
 ```
 
 PixiJS is a peer dependency so host applications can control their renderer version.
@@ -39,7 +50,7 @@ PixiJS is a peer dependency so host applications can control their renderer vers
 ## Quick Start
 
 ```ts
-import { GameEngine, Vector, type AssetConfig, type IEntity } from 'web-based-2d-game-engine-framework';
+import { GameEngine, Vector, type AssetConfig, type IEntity } from '@doz6x9/web-based-2d-game-engine-framework';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const engine = new GameEngine();
@@ -102,7 +113,7 @@ import {
   ParticleSystem,
   AnimationLibrary,
   LevelEditor,
-} from 'web-based-2d-game-engine-framework';
+} from '@doz6x9/web-based-2d-game-engine-framework';
 ```
 
 The root export intentionally exposes engine building blocks instead of forcing one game architecture. Use `GameEngine` for an integrated runtime, or compose lower-level modules directly for custom tools, simulations, editors, and tests.
@@ -230,7 +241,9 @@ npm run test:watch  # re-run on save
 1. Update `name`, `version`, `author`, `repository`, and `keywords` in `package.json`.
 2. Run `npm run build`.
 3. Run `npm pack --dry-run` and check that only package files are included.
-4. Publish with `npm publish --access public` when ready.
+4. Log in to GitHub Packages with a GitHub token that has the `write:packages` scope: `npm login --scope=@doz6x9 --auth-type=legacy --registry=https://npm.pkg.github.com` (use your GitHub username, and the token as the password).
+5. Publish with `npm publish`. `publishConfig` in `package.json` sends it to GitHub Packages.
+6. To publish to npmjs.com as well, run `npm login` and then `npm publish --registry=https://registry.npmjs.org --access public`. This needs an npmjs account named `doz6x9` (or an npm organisation with that name) to own the `@doz6x9` scope.
 
 ## License
 

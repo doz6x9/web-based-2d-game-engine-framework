@@ -1,6 +1,6 @@
 {
-  "name": "web-based-2d-game-engine-framework",
-  "version": "0.1.0",
+  "name": "@doz6x9/web-based-2d-game-engine-framework",
+  "version": "0.2.0",
   "description": "A modular TypeScript 2D grid game engine framework for the web, powered by PixiJS.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -68,5 +68,8 @@
   },
   "engines": {
     "node": ">=20.19.0"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   }
 }
