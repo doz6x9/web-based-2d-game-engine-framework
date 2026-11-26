@@ -117,7 +117,7 @@ export class GameApp {
     this.engine.on('gridClick', (x, y, button) => this.onGridClick(x, y, button));
     this.engine.on('gridHover', (x, y) => this.hud.setMouseCoords(x, y));
 
-    await this.engine.init(canvas, 1280, 720, ASSETS, LEVELS[this.level]);
+    await this.engine.init(canvas, 1280, 720, ASSETS, LEVELS[this.level], { showMouseCoordinates: true });
 
     this.setupButtons();
     this.hud.setHealth(this.playerHealth, PLAYER_MAX_HEALTH);
@@ -137,9 +137,9 @@ export class GameApp {
     this.pendingInteraction = null;
     this.selectedCell = null;
 
-    const rawObjects = ((mapData as { objects?: MapObjectData[] }).objects ?? []) as MapObjectData[];
-    const spawn = rawObjects.find((o) => o.type === 'PLAYER_SPAWN');
-    this.setPlayerTile(spawn ? new Vector(spawn.x, spawn.y) : new Vector(1, 1));
+    const rawObjects = (mapData.objects ?? []) as MapObjectData[];
+    // The engine resolves PLAYER_SPAWN and nudges it onto a walkable cell if needed.
+    this.setPlayerTile(this.engine.getSpawnPoint() ?? new Vector(1, 1));
     this.playerRenderPos.x = this.playerTile.x;
     this.playerRenderPos.y = this.playerTile.y;
 
@@ -216,7 +216,10 @@ export class GameApp {
 
     // Closed doors block movement and sight until opened.
     if (object.kind === 'DOOR') {
-      object.originalCell = this.engine.grid.getCell(data.x, data.y)?.type ?? CellType.STONE_FLOOR;
+      // Maps mark door cells as walls in the collision layer, so the open
+      // door takes the floor type from the terrain layer instead.
+      const terrain = this.engine.map?.getLayerByName('terrain')?.getData();
+      object.originalCell = (terrain?.[data.y]?.[data.x] as CellType | undefined) ?? CellType.STONE_FLOOR;
       this.engine.grid.setCellType(data.x, data.y, CellType.CAVE_WALL);
     }
 
@@ -269,9 +272,12 @@ export class GameApp {
   }
 
   private moveTo(target: Vector): boolean {
-    const newPath = this.engine.pathfinder.findPath(this.playerTile.clone(), target);
-    if (newPath.length < 2) return false;
-    this.path = newPath;
+    const start = this.playerTile.clone();
+    // findPath excludes the start cell, so a click on a neighbouring cell
+    // returns a one-step path. Prepend the start so every step has a "from".
+    const steps = this.engine.pathfinder.findPath(start, target);
+    if (steps.length === 0) return false;
+    this.path = [start, ...steps];
     this.pathIndex = 0;
     this.moveProgress = 0;
     this.selectedCell = target;
@@ -285,7 +291,7 @@ export class GameApp {
       if (!this.engine.grid.getCell(n.x, n.y)?.walkable) continue;
       if (n.equals(this.playerTile)) return n;
       const length = this.engine.pathfinder.findPath(this.playerTile.clone(), n).length;
-      if (length > 1 && length < bestLength) {
+      if (length > 0 && length < bestLength) {
         best = n;
         bestLength = length;
       }
@@ -421,6 +427,13 @@ export class GameApp {
     this.setTexture(door, 'gate_open');
     this.engine.grid.setCellType(door.position.x, door.position.y, door.originalCell ?? CellType.STONE_FLOOR);
     this.engine.lighting.markDirty();
+
+    // Reveal the room behind the door with the engine's flood fill.
+    for (const n of this.engine.grid.getNeighbors(door.position.x, door.position.y)) {
+      if (!this.engine.fogOfWar.isExplored(n.x, n.y) && this.engine.grid.getCell(n.x, n.y)?.walkable) {
+        this.engine.revealRoom(n);
+      }
+    }
 
     if (door.data.isLevelExit) {
       this.hud.say('System', 'The exit opens. Click it again to descend.');
