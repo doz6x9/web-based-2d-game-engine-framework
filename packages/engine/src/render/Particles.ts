@@ -4,14 +4,23 @@ import { Vector } from '../core/Vector';
  * Particle definition
  */
 export interface Particle {
+  /** Position in grid cells. */
   position: Vector;
+  /** Velocity in cells per second. */
   velocity: Vector;
+  /** Acceleration in cells per second squared. */
   acceleration: Vector;
+  /** Time left to live, in milliseconds. */
   lifetime: number;
+  /** Total lifetime, in milliseconds. */
   maxLifetime: number;
+  /** Radius in pixels. */
   size: number;
+  /** Colour as 0xRRGGBB. */
   color: number;
+  /** Opacity from 0 to 1. Fades as the particle ages. */
   alpha: number;
+  /** Rotation in radians. */
   rotation: number;
 }
 
@@ -19,14 +28,23 @@ export interface Particle {
  * Particle emitter configuration
  */
 export interface ParticleEmitterConfig {
+  /** Most particles alive at once. */
   maxParticles: number;
-  emissionRate: number; // particles per second
-  lifetime: { min: number; max: number }; // milliseconds
+  /** Particles spawned per second. */
+  emissionRate: number;
+  /** Range for each particle's lifetime, in milliseconds. */
+  lifetime: { min: number; max: number };
+  /** Range for the starting speed. */
   speed: { min: number; max: number };
+  /** Range for the radius, in pixels. */
   size: { min: number; max: number };
+  /** Colours to pick from at random (0xRRGGBB). */
   color: number[];
-  angle: { min: number; max: number }; // degrees
+  /** Range for the starting direction, in degrees. */
+  angle: { min: number; max: number };
+  /** Downward acceleration added to every particle. */
   gravity: number;
+  /** Velocity damping per update, from 0 (none) to 1. */
   friction: number;
 }
 
@@ -231,6 +249,7 @@ export class ParticleSystem {
  * Preset particle configurations
  */
 export class ParticlePresets {
+  /** A short burst of orange sparks. */
   static EXPLOSION: ParticleEmitterConfig = {
     maxParticles: 100,
     emissionRate: 500,
@@ -243,6 +262,7 @@ export class ParticlePresets {
     friction: 0.95,
   };
 
+  /** Small, fast yellow sparks. */
   static SPARK: ParticleEmitterConfig = {
     maxParticles: 50,
     emissionRate: 200,
@@ -255,6 +275,7 @@ export class ParticlePresets {
     friction: 0.9,
   };
 
+  /** Red droplets that fall with gravity. */
   static BLOOD: ParticleEmitterConfig = {
     maxParticles: 30,
     emissionRate: 100,
@@ -267,6 +288,7 @@ export class ParticlePresets {
     friction: 0.92,
   };
 
+  /** Green particles that float upwards. */
   static HEAL: ParticleEmitterConfig = {
     maxParticles: 40,
     emissionRate: 150,
@@ -279,6 +301,7 @@ export class ParticlePresets {
     friction: 0.98,
   };
 
+  /** Purple and blue magic particles. */
   static MAGIC: ParticleEmitterConfig = {
     maxParticles: 60,
     emissionRate: 200,
@@ -291,6 +314,7 @@ export class ParticlePresets {
     friction: 0.93,
   };
 
+  /** Slow grey dust. */
   static DUST: ParticleEmitterConfig = {
     maxParticles: 80,
     emissionRate: 300,

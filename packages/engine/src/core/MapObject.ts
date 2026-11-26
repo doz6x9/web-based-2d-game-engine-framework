@@ -18,15 +18,22 @@ export enum MapObjectType {
  * Developers can extend this class in their own game layer
  */
 export class MapObject {
+  /** Unique id. */
   id: string;
+  /** What kind of object this is. */
   type: MapObjectType;
+  /** Cell the object sits on. */
   position: Vector;
+  /** Texture id used to draw the object. */
   sprite: string;
 
   // Framework-level properties
+  /** Inactive objects can be skipped by game code. */
   isActive: boolean = true;
+  /** The sprite drawing the object, once one has been created. */
   pixiSprite: PIXI.Sprite | null = null;
-  radius: number = 0; // Generic range property for FOV/Interaction/Triggers
+  /** Generic range in cells (light radius, trigger range, ...). */
+  radius: number = 0;
 
   /**
    * Generic metadata storage

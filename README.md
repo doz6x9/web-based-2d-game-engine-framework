@@ -244,6 +244,10 @@ The engine knows nothing about health, keys or goblins. It provides systems and 
 
 Each frame, the lighting system merges the field of view from every light and passes it to Fog of War. The renderer then draws the map, entities and fog. The fog layer is only redrawn when the fog actually changes.
 
+## Architecture diagrams
+
+[`packages/engine/docs/architecture.md`](packages/engine/docs/architecture.md) has Mermaid diagrams of the engine, drawn from the TypeScript source: a module overview, class diagrams (map and core, algorithms, rendering, input, lighting), and sequence diagrams for map loading, the game loop, click-to-move with A\* and field of view, and opening a door with a flood-fill room reveal.
+
 ## Tests
 
 ```bash
