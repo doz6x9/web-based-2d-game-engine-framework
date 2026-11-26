@@ -1,0 +1,16 @@
+{
+  "name": "web-based-2d-game-engine-framework-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w packages/engine && npm run build -w apps/demo",
+    "build:engine": "npm run build -w packages/engine",
+    "build:demo": "npm run build -w apps/demo",
+    "dev": "npm run build -w packages/engine && npm run dev -w apps/demo",
+    "typecheck": "npm run typecheck --workspaces"
+  }
+}

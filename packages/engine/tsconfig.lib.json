@@ -10,6 +10,5 @@
     "rootDir": "src",
     "stripInternal": true
   },
-  "include": ["src/index.ts", "src/engine/**/*.ts"],
-  "exclude": ["src/main.ts", "src/game/**"]
+  "include": ["src/**/*.ts"]
 }

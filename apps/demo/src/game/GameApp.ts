@@ -1,5 +1,4 @@
-import { GameEngine, AssetConfig, IEntity } from '../engine/GameEngine';
-import { Vector } from '../engine/core/Vector';
+import { GameEngine, Vector, type AssetConfig, type IEntity } from 'web-based-2d-game-engine-framework';
 import * as PIXI from 'pixi.js'; // PIXI is needed for sprites
 
 /**

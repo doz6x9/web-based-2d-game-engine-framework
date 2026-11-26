@@ -21,14 +21,11 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "dev": "vite",
     "typecheck": "tsc --noEmit",
     "build": "npm run clean && npm run typecheck && npm run build:lib && npm run build:types",
     "build:lib": "vite build --config vite.lib.config.ts",
     "build:types": "tsc -p tsconfig.lib.json",
-    "build:demo": "vite build --outDir dist-demo --emptyOutDir",
-    "clean": "node -e \"const fs=require('fs'); for (const p of ['dist','dist-demo']) fs.rmSync(p,{recursive:true,force:true});\"",
-    "preview": "vite preview",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepack": "npm run build"
   },
   "keywords": [
@@ -48,9 +45,12 @@
   },
   "devDependencies": {
     "pixi.js": "^8.18.1",
-    "sass": "^1.99.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.10"
   },
-  "dependencies": {}
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/doz6x9/web-based-2d-game-engine-framework.git",
+    "directory": "packages/engine"
+  }
 }
