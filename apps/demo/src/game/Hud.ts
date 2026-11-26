@@ -45,7 +45,9 @@ export class Hud {
   }
 
   setLevel(level: number, name: string): void {
-    if (this.levelDisplay) this.levelDisplay.textContent = `Level ${level}: ${name}`;
+    if (!this.levelDisplay) return;
+    // Some map names already start with "Level N:", so don't repeat it.
+    this.levelDisplay.textContent = /^level\s*\d+/i.test(name) ? name : `Level ${level}: ${name}`;
   }
 
   setHealth(current: number, max: number): void {
