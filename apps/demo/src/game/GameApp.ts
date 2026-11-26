@@ -1,6 +1,7 @@
 import {
   CellType,
   GameEngine,
+  TileRegistry,
   Vector,
   type AssetConfig,
   type IEntity,
@@ -73,6 +74,23 @@ const rollBetween = (min: number, max: number): number => min + Math.floor(Math.
 // and one GPU texture instead of one per image, so PixiJS can batch draws.
 const ASSETS: AssetConfig[] = [{ id: 'atlas', path: '/atlas/sprites.json', type: 'spritesheet' }];
 
+// Decor drawn on each map's "landmarks" layer, between the ground and the
+// entities. Overlay layers don't affect walkability, so these are only looks.
+const LANDMARKS: Record<number, [sprite: string, name: string, color: number]> = {
+  20: ['flowers', 'Flowers', 0xd6404a],
+  21: ['grass_tuft', 'Grass Tuft', 0x6eaa46],
+  22: ['rock', 'Rock', 0x9c9ca4],
+  23: ['mushroom', 'Mushroom', 0xc43630],
+  24: ['bones', 'Bones', 0xece4ce],
+  25: ['crack', 'Crack', 0x1a1816],
+  26: ['rubble', 'Rubble', 0x7c7874],
+  27: ['banner', 'Banner', 0x961e2c],
+  28: ['ice_crystal', 'Ice Crystal', 0x8cccf0],
+};
+for (const [id, [sprite, name, color]] of Object.entries(LANDMARKS)) {
+  TileRegistry.registerTile(Number(id), { cost: 1, walkable: true, sprite, name, color });
+}
+
 /**
  * Dungeon demo built on the published engine package.
  * Engine: rendering, map loading, pathfinding, lighting and fog of war.
@@ -130,9 +148,6 @@ export class GameApp {
       fitCanvasToMap: true,
     });
     fitCanvasToStage();
-    // Unexplored cells get a faint grid so they read as unexplored map, not empty space.
-    this.engine.renderer.fogStyle.unknownColor = 0x08080e;
-    this.engine.renderer.fogStyle.unknownGridColor = 0x14141f;
 
     this.setupButtons();
     this.hud.setHealth(this.playerHealth, PLAYER_MAX_HEALTH);
@@ -240,7 +255,7 @@ export class GameApp {
     if (object.kind === 'DOOR') {
       // Maps mark door cells as walls in the collision layer, so the open
       // door takes the floor type from the terrain layer instead.
-      const terrain = this.engine.map?.getLayerByName('terrain')?.getData();
+      const terrain = this.engine.map?.getGroundLayer()?.getData();
       object.originalCell = (terrain?.[data.y]?.[data.x] as CellType | undefined) ?? CellType.STONE_FLOOR;
       this.engine.grid.setCellType(data.x, data.y, CellType.CAVE_WALL);
     }

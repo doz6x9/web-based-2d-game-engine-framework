@@ -1,22 +1,8 @@
 import { Vector } from './Vector';
 
-/**
- * Grid constants for cell types
- */
-export enum CellType {
-  GRASS = 0,
-  CAVE_WALL = 1,
-  WATER = 2,
-  SAND = 3,
-  PATH = 4,
-  STONE_FLOOR = 5,
-  DEEP_WATER = 6,
-  SNOW = 7,
-  CAVE_FLOOR = 8,
-  WOOD_FLOOR = 9,
-  SWAMP = 10,
-  FOREST = 11,
-}
+import { CellType, TileRegistry } from './TileRegistry';
+
+export { CellType };
 
 /**
  * Represents a single cell in the grid
@@ -90,35 +76,12 @@ export class Grid {
     const cell = this.cells.get(this.getKey(x, y));
     if (cell) {
       cell.type = type;
-      cell.walkable = type !== CellType.CAVE_WALL && type !== CellType.WATER && type !== CellType.DEEP_WATER && type !== CellType.FOREST;
-      cell.cost = this.calculateCost(type);
+      // TileRegistry is the single source of truth for walkability and cost.
+      cell.walkable = TileRegistry.isWalkable(type);
+      cell.cost = cell.walkable ? TileRegistry.getCost(type) : Infinity;
     }
   }
 
-  /**
-   * Calculate movement cost based on cell type
-   */
-  private calculateCost(type: CellType): number {
-    const costs: Record<CellType, number> = {
-      [CellType.GRASS]: 1,
-      [CellType.CAVE_WALL]: Infinity,
-      [CellType.WATER]: Infinity,
-      [CellType.SAND]: 1.5,
-      [CellType.PATH]: 0.5,
-      [CellType.STONE_FLOOR]: 1,
-      [CellType.DEEP_WATER]: Infinity,
-      [CellType.SNOW]: 1.5,
-      [CellType.CAVE_FLOOR]: 1.2,
-      [CellType.WOOD_FLOOR]: 1,
-      [CellType.SWAMP]: 3,
-      [CellType.FOREST]: Infinity,
-    };
-    return costs[type];
-  }
-
-  /**
-   * Check if coordinates are in bounds
-   */
   isInBounds(x: number, y: number): boolean {
     return x >= 0 && x < this.width && y >= 0 && y < this.height;
   }

@@ -4,7 +4,7 @@ A modular TypeScript engine for 2D square-grid games in the browser, rendered wi
 
 The engine handles rendering, multi-layer JSON maps, camera and view fitting, A* pathfinding with terrain costs, field of view with shadows and multiple lights, Fog of War, flood-fill room reveal, and mouse-to-cell input. Game rules such as health, combat, keys and levels live in the demo, not the engine.
 
-![The demo at the start of level 1: the player in a meadow, unexplored map shown dark with a faint grid](docs/screenshots/demo-level1-start.png)
+![The demo at the start of level 1: the player in a meadow with flowers and grass tufts, unexplored map fully dark](docs/screenshots/demo-level1-start.png)
 
 ## Contents
 
@@ -47,13 +47,13 @@ The demo imports the engine by its package name, exactly like any other project 
 
 ### Engine (`packages/engine`)
 
-- **Rendering with PixiJS 8.** Layers draw bottom-up (terrain, objects, entities, fog, effects). Tiles and sprites can come from single images or one texture atlas.
-- **Multi-layer JSON maps.** A `terrain` layer sets tile types and an optional `collision` layer overrides walkability. An `objects` list places spawns, items, doors and lights.
-- **View handling.** The camera keeps a chosen cell (usually the player) centred on large maps and stops at the map edges. Small maps get the largest whole-number zoom that fits, so pixels stay sharp, and are centred. The canvas can shrink to the map so there are no empty borders.
-- **A\* pathfinding with terrain costs.** Road costs 0.5, grass 1, sand and snow 1.5, cave floor 1.2 and swamp 3. Walls, water and forest block movement. The heuristic is scaled by the cheapest tile, so the path found is always the cheapest one.
-- **Field of view and shadows.** Raycasting (or shadowcasting) from each light. Walls stop the view and cast shadows behind them.
+- **Rendering with PixiJS 8.** Layers draw bottom-up (ground, landmarks and other overlay layers, objects, entities, fog, effects). Tiles and sprites can come from single images or one texture atlas.
+- **Multi-layer JSON maps.** Each layer has a role. The ground layer sets tile types, an optional collision layer overrides walkability, and any other layers (such as `landmarks`: flowers, rocks, bones, banners) are drawn on top in file order without affecting movement. Layer names are read from the map or passed to the engine, with `terrain` and `collision` as defaults. An `objects` list places spawns, items, doors and lights.
+- **View handling.** The camera keeps a chosen cell (usually the player) centred on large maps, horizontally and vertically, and stops at the map edges. Level 2 is 48×30 cells, wider than the 40-cell canvas, so it scrolls sideways as you walk. Small maps get the largest whole-number zoom that fits, so pixels stay sharp, and are centred. The canvas can shrink to the map so there are no empty borders.
+- **A\* pathfinding with terrain costs.** Road costs 0.5, grass 1, sand and snow 1.5, cave floor 1.2 and swamp 3. Walls, water and forest block movement. The heuristic is scaled by the cheapest tile, so the path found is always the cheapest one. Costs and walkability come from one place, `TileRegistry`, so the grid, renderer and pathfinder always agree.
+- **Field of view and shadows.** Raycasting or recursive symmetric shadowcasting over all eight octants, from each light. Walls stop the view and cast shadows behind them, and light can't slip through the corner where two walls touch diagonally.
 - **Several light sources.** The lighting system merges any number of lights into one visible set. It only recalculates when a light moves, changes or is toggled. Lights can stay dark until their cell has been explored.
-- **Fog of War.** Unexplored cells are fully dark, with an optional faint grid. Explored cells out of view are greyed out, and visible cells are drawn normally.
+- **Fog of War.** Unexplored cells are fully black (an optional faint grid is available). Explored cells out of view are greyed out, and visible cells are drawn normally.
 - **Room visibility with flood fill.** `engine.revealRoom(cell)` fills from a cell until it hits walls, then marks the room and its walls as explored. This is used when a door opens.
 - **Mouse input.** Left and right clicks are turned into grid cells, taking CSS scaling, zoom and centring into account. The clicked cell's coordinates can be drawn on the canvas.
 - **Also included.** Particles, sprite animation and tweens, a typed event system, a level editor helper, and spawn-point lookup.
@@ -72,10 +72,10 @@ How each requirement of the thesis topic is met, and where to find it.
 | Requirement | Where it is met |
 |---|---|
 | HTML5, SCSS, TypeScript and PixiJS | `apps/demo/index.html`, `apps/demo/src/styles/main.scss`, all source in TypeScript, rendering in `packages/engine/src/render/Renderer.ts` |
-| Rendering module that draws map layers bottom-up | `Renderer.renderMap` with ordered layer containers in `Renderer.ts` |
+| Rendering module that draws map layers bottom-up | `Renderer.renderMap` with ordered layer containers in `Renderer.ts`; the demo maps have ground, landmarks and entities |
 | Maps defined in multi-layer JSON and loaded from a file | `MapLoader` in `packages/engine/src/map/MapLayer.ts`; maps in `apps/demo/public/maps/` |
-| View handling: show part of a large map, centred on a cell | `Camera.centerOn`, `Camera.fitZoomToMap` and `GameEngine.fitViewToMap` |
-| A\* that weighs terrain costs as well as walls | `packages/engine/src/algorithms/AStar.ts` and tile costs in `core/Grid.ts`; tested against Dijkstra |
+| View handling: show part of a large map, centred on a cell | `Camera.centerOn`, `Camera.fitZoomToMap` and `GameEngine.fitViewToMap`; level 2 is wider and taller than the canvas, so it scrolls both ways |
+| A\* that weighs terrain costs as well as walls | `packages/engine/src/algorithms/AStar.ts` and tile costs in `core/TileRegistry.ts`; tested against Dijkstra |
 | Real-time field of view and shadows from walls | `packages/engine/src/algorithms/FieldOfView.ts` |
 | Multiple light sources such as torches | `packages/engine/src/systems/LightingSystem.ts`; torches in both demo maps |
 | Fog of War: explored areas greyed out, unexplored fully dark | `packages/engine/src/algorithms/FogOfWar.ts` and the fog layer in `Renderer.ts` |
@@ -182,6 +182,7 @@ The full API, with every option and event, is in the [engine README](packages/en
   "height": 30,
   "layers": [
     { "name": "terrain",   "data": [[11, 11, 11], [11, 4, 0]] },
+    { "name": "landmarks", "data": [[0, 0, 0], [0, 0, 20]] },
     { "name": "collision", "data": [[1, 1, 1], [1, 0, 0]] }
   ],
   "objects": [
@@ -247,10 +248,13 @@ Each frame, the lighting system merges the field of view from every light and pa
 npm test
 ```
 
-There are 42 unit tests (Vitest) in `packages/engine/test`:
+There are 61 unit tests (Vitest) in `packages/engine/test`:
 
 - **A\*:** straight paths, walls, unreachable goals, taking a cheap road around a swamp, crossing the swamp when that is cheaper, and matching Dijkstra's cost on mixed terrain.
 - **Field of view:** radius limits, walls blocking sight, closed rooms, and both raycasting and shadowcasting.
+- **Shadowcasting:** a full disc on open ground, all eight octants, shadows behind a wall, doorways, symmetry (if A sees B, B sees A), and no light through diagonal wall gaps for either algorithm.
+- **Map layers:** default, map-defined and engine-supplied layer names, explicit roles, a map with no collision layer, and overlay layers not blocking movement.
+- **Tile costs:** every grid cell takes its cost and walkability from `TileRegistry`, including tiles a game registers.
 - **Lighting:** the union of several lights, lights kept inside their rooms, skipping work when nothing changed, toggling lights, and torches hidden until explored.
 - **Fog of War:** state changes, explored memory, and reset.
 - **Flood fill:** filling a room, spreading through an open door, the size limit, and `revealRoom` revealing only the room behind a door.
@@ -270,13 +274,17 @@ There are 42 unit tests (Vitest) in `packages/engine/test`:
 | One app with the engine in `src/engine` | An npm workspaces monorepo: `packages/engine` (published) and `apps/demo` (imports it by name) |
 | Engine code and game code mixed on some branches | The engine has no game rules; combat, keys and levels live in `apps/demo/src/game/GameApp.ts` |
 | Single light at a time | `LightingSystem` merges any number of lights, with torches that stay dark until found |
-| Unexplored fog was not fully dark | Unexplored cells are fully dark (optional faint grid); explored cells are greyed out |
+| Unexplored fog was not fully dark | Unexplored cells are fully black; explored cells are greyed out |
 | Flood fill existed but was not used | Opening a door reveals the room behind it |
 | A\* could return a path that was not the cheapest | The heuristic is scaled to the cheapest tile; checked against Dijkstra in tests |
 | Clicked cells were not shown on the canvas | Left and right clicks are labelled on the canvas in different colours |
 | Fixed canvas with empty space around small maps | Whole-number zoom, centring, and a canvas that fits the map |
-| The tile table listed ids that did not match the code | The tile table above matches `Grid.ts` and `TileRegistry.ts` |
-| No tests | 42 unit tests, run with `npm test` |
+| The tile table listed ids that did not match the code | The tile table above matches `TileRegistry.ts`, the single source of tile costs |
+| Maps had only terrain and collision | A `landmarks` layer of decor sits between the ground and the entities |
+| Layer names `terrain` and `collision` were hardcoded | Layers have roles, set in the map or passed to the engine |
+| Shadowcasting was approximate, and light leaked through diagonal wall gaps | Symmetric recursive shadowcasting over eight octants; diagonal gaps block light in both algorithms |
+| Both maps fit the canvas width | Level 2 is 48 cells wide and scrolls horizontally |
+| No tests | 61 unit tests, run with `npm test` |
 | Many separate images | One texture atlas; much faster first load |
 
 The dialogue, NPC AI, save/load and audio systems from the older `develop` branch are not part of this version yet. They are kept in the git history and in the `backup/develop-2026-11-26` branch, ready to be brought back into the engine.

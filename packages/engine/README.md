@@ -17,7 +17,7 @@ A modular TypeScript framework for browser-based 2D grid games, powered by PixiJ
 - A* pathfinding with terrain costs, raycast/shadowcast field of view, fog of war, and flood fill utilities.
 - Event-driven engine lifecycle with typed events for map loading, input, update, and render hooks.
 - ESM and CommonJS package output with TypeScript declaration files.
-- Unit tests (Vitest) for the algorithms, lighting, fog and mouse input.
+- Unit tests (Vitest) for the algorithms, shadowcasting, lighting, fog, map layers and mouse input.
 
 ## Screenshots
 
@@ -143,7 +143,7 @@ await engine.initWithOptions({ canvas, width: 1280, height: 720, assets, fitCanv
 engine.on('viewResized', (w, h) => console.log('canvas is now', w, h));
 ```
 
-`renderer.fogStyle` sets the Fog of War colours. Giving `unknownGridColor` a colour draws a faint grid over unexplored cells so they read as "not explored yet" rather than empty space.
+`renderer.fogStyle` sets the Fog of War colours. Unexplored cells are black by default. Giving `unknownGridColor` a colour draws a faint grid over them so they read as "not explored yet" rather than empty space.
 
 ## Lighting
 
@@ -175,7 +175,13 @@ Lights are cleared by `engine.clear()`. If no lights are registered, the engine 
 
 ## Map Format
 
-Maps are JSON objects with named layers. A `terrain` layer defines tile types; an optional `collision` layer can override walkability.
+Maps are JSON objects with named layers, drawn bottom-up in file order. Each layer has a role:
+
+- **ground**: tile types for every cell (tile 0 is a real tile here).
+- **collision** (optional): a non-zero value overrides the ground tile for walkability and cost. It is not drawn.
+- **overlay**: everything else, such as decor. Drawn on top of the ground, 0 means empty, and it never affects movement.
+
+A layer can set its own `"role"`, or the map can name them with `"groundLayer"` and `"collisionLayer"`. Otherwise the engine uses the `layerNames` option (`new GameEngine({ layerNames: { ground: 'floor', collision: 'walls' } })`), then the defaults `terrain` and `collision`, and finally the first layer as ground.
 
 ```json
 {
@@ -184,6 +190,7 @@ Maps are JSON objects with named layers. A `terrain` layer defines tile types; a
   "height": 30,
   "layers": [
     { "name": "terrain", "data": [[0, 0, 0], [0, 4, 0]] },
+    { "name": "landmarks", "data": [[0, 0, 20], [0, 0, 0]] },
     { "name": "collision", "data": [[0, 1, 0], [0, 0, 0]] }
   ],
   "objects": [
@@ -193,6 +200,12 @@ Maps are JSON objects with named layers. A `terrain` layer defines tile types; a
 ```
 
 `MapLoader` also accepts flat one-dimensional layer data, which is useful for maps exported from tile editors.
+
+Tile ids, costs, walkability and sprites all come from `TileRegistry`. Register your own tiles, such as decor for an overlay layer, before loading a map:
+
+```ts
+TileRegistry.registerTile(20, { sprite: 'flowers', name: 'Flowers', walkable: true, cost: 1, color: 0xd6404a });
+```
 
 ## Engine Events
 
@@ -229,7 +242,7 @@ Useful scripts:
 
 ## Running the Tests
 
-The engine has unit tests (Vitest) for A* pathfinding (including terrain costs and shortest-path checks), field of view and shadows, several lights at once, Fog of War, flood fill room reveal, and turning mouse clicks into grid cells.
+The engine has 61 unit tests (Vitest) for A* pathfinding (including terrain costs and shortest-path checks), field of view and shadows, symmetric shadowcasting (all octants, doorways, no leaks through diagonal wall gaps), map layer roles, tile costs, several lights at once, Fog of War, flood fill room reveal, and turning mouse clicks into grid cells.
 
 ```bash
 npm test            # run once

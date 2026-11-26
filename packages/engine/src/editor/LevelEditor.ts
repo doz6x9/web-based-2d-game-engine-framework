@@ -94,6 +94,7 @@ export class LevelEditor {
     }
 
     const terrainLayer = new MapLayer('terrain', terrainData as any);
+    terrainLayer.setRole('ground');
     this.map.addLayer(terrainLayer);
 
     return this.map;
