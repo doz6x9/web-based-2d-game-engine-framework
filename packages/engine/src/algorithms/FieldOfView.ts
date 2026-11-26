@@ -5,19 +5,26 @@ import { Grid } from '../core/Grid';
  * Represents a light source in the world
  */
 export interface LightSource {
+  /** Cell the light sits on. */
   position: Vector;
+  /** Radius in cells. */
   radius: number;
-  intensity?: number; // 0.0 - 1.0, default 1.0
-  color?: { r: number; g: number; b: number }; // For torches, candles, etc.
+  /** Brightness from 0 to 1. Defaults to 1. */
+  intensity?: number;
+  /** Light colour, for coloured lighting effects. */
+  color?: { r: number; g: number; b: number };
 }
 
 /**
  * Visibility data for a cell including intensity from multiple lights
  */
 export interface CellVisibility {
-  intensity: number; // 0.0 = dark, 1.0 = fully lit
-  isBlocked: boolean; // True if blocked by obstacle
-  distances: Map<number, number>; // Light source index -> distance
+  /** Brightness from 0 (dark) to 1 (fully lit). */
+  intensity: number;
+  /** True if the cell itself blocks sight (a wall that is visible but casts a shadow). */
+  isBlocked: boolean;
+  /** Distance from each light that reaches the cell, keyed by light index. */
+  distances: Map<number, number>;
 }
 
 /**

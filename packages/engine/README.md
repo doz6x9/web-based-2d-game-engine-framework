@@ -125,6 +125,16 @@ engine.on('gridClick', (x, y, button) => {
 });
 ```
 
+## Architecture
+
+[`docs/architecture.md`](docs/architecture.md) has Mermaid diagrams drawn from the source, and GitHub renders them as diagrams:
+
+- a module overview showing how `GameEngine` wires the subsystems together;
+- class diagrams for the map and core types, the algorithms (A\*, field of view, Fog of War, flood fill), rendering, input and lighting;
+- sequence diagrams for startup and map loading, one frame of the game loop, a click turning into an A\* path and a field-of-view update, and a door opening with a flood-fill room reveal.
+
+In short, the map JSON is parsed into layers with roles. The ground and collision layers build the `Grid`, and `TileRegistry` gives each cell its walkability and cost. A\*, field of view and flood fill all read that grid. `LightingSystem` merges the field of view of every light into Fog of War each frame, and `Renderer` draws the layers, entities and fog with PixiJS. The engine reports input and frame timing through events (`gridClick`, `update`, `beforeRender`, ...), and the game decides what happens.
+
 ## Public API
 
 Import from the package root:

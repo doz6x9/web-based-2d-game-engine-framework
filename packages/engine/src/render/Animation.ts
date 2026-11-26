@@ -2,25 +2,33 @@
  * Animation frame definition
  */
 export interface AnimationFrame {
+  /** Texture id shown during this frame. */
   spriteId: string;
-  duration: number; // milliseconds
+  /** How long the frame stays on screen, in milliseconds. */
+  duration: number;
 }
 
 /**
  * Animation definition
  */
 export interface AnimationDefinition {
+  /** Name used to look the animation up in an {@link AnimationLibrary}. */
   name: string;
+  /** Frames in playback order. */
   frames: AnimationFrame[];
+  /** Start again from the first frame after the last one. */
   loop: boolean;
-  speed: number; // playback speed multiplier
+  /** Playback speed multiplier (1 = normal speed). */
+  speed: number;
 }
 
 /**
  * Animatable object interface
  */
 export interface IAnimatable {
+  /** Show the given texture. */
   setCurrentSprite(spriteId: string): void;
+  /** Returns The name of the current state, for example `"walk"`. */
   getAnimationState(): string;
 }
 
@@ -294,26 +302,32 @@ export class Tween {
     return t;
   }
 
+  /** Quadratic ease-in: starts slowly and speeds up. */
   static easeInQuad(t: number): number {
     return t * t;
   }
 
+  /** Quadratic ease-out: starts fast and slows down. */
   static easeOutQuad(t: number): number {
     return t * (2 - t);
   }
 
+  /** Quadratic ease-in-out: slow at both ends. */
   static easeInOutQuad(t: number): number {
     return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
   }
 
+  /** Cubic ease-in. */
   static easeInCubic(t: number): number {
     return t * t * t;
   }
 
+  /** Cubic ease-out. */
   static easeOutCubic(t: number): number {
     return 1 + (t - 1) * (t - 1) * (t - 1);
   }
 
+  /** Cubic ease-in-out. */
   static easeInOutCubic(t: number): number {
     return t < 0.5 ? 4 * t * t * t : 1 + (t - 1) * (2 * (t - 2)) * (2 * (t - 2));
   }

@@ -8,11 +8,16 @@ export { CellType };
  * Represents a single cell in the grid
  */
 export interface Cell {
+  /** Column. */
   x: number;
+  /** Row. */
   y: number;
+  /** Tile id, looked up in {@link TileRegistry}. */
   type: CellType;
+  /** Whether entities can enter the cell. Unwalkable cells also block sight. */
   walkable: boolean;
-  cost: number; // For pathfinding
+  /** Movement cost for A* (Infinity when not walkable). */
+  cost: number;
 }
 
 /**
@@ -23,6 +28,7 @@ export class Grid {
   private width: number;
   private height: number;
 
+  /** Create a grid where every cell starts as grass. */
   constructor(width: number, height: number) {
     this.width = width;
     this.height = height;
@@ -82,6 +88,7 @@ export class Grid {
     }
   }
 
+  /** Returns True if (x, y) is inside the grid. */
   isInBounds(x: number, y: number): boolean {
     return x >= 0 && x < this.width && y >= 0 && y < this.height;
   }
@@ -127,6 +134,7 @@ export class Grid {
     return this.width;
   }
 
+  /** Returns Height in cells. */
   getHeight(): number {
     return this.height;
   }
