@@ -7,7 +7,7 @@ A modular TypeScript framework for browser-based 2D grid games, powered by PixiJ
 ## Where to Get It
 
 - **GitHub Packages:** `@doz6x9/web-based-2d-game-engine-framework` (see [Install](#install) for the one-time `.npmrc` setup)
-- **Engine source only:** the [`engineFramework`](https://github.com/doz6x9/web-based-2d-game-engine-framework/tree/engineFramework) branch. Clone it to work on the engine itself.
+- **Engine source only:** the [`engineFramework`](https://github.com/doz6x9/web-based-2d-game-engine-framework/tree/engineFramework) branch. Clone it to work on the engine itself, or to [start a game](#start-a-game-from-this-branch) from the included starter.
 - **Engine plus a playable demo game:** the [`main`](https://github.com/doz6x9/web-based-2d-game-engine-framework) branch, where the engine lives in `packages/engine` and the demo in `apps/demo`.
 
 ## Features
@@ -27,6 +27,30 @@ From the demo game on the `main` branch.
 |---|---|
 | ![Right-click path and click labels](https://raw.githubusercontent.com/doz6x9/web-based-2d-game-engine-framework/main/docs/screenshots/demo-pathfinding-clicks.png) | ![Torches lighting a hall](https://raw.githubusercontent.com/doz6x9/web-based-2d-game-engine-framework/main/docs/screenshots/demo-level2-torches.png) |
 | A\* path to a right-clicked cell, with left and right clicks labelled by grid cell. | Several torches at once. Walls cast shadows, and unexplored cells stay dark. |
+
+## Start a Game from This Branch
+
+You don't need the npm package to make a game. The `engineFramework` branch has a small playable starter in `examples/starter` that imports the engine straight from `src/`:
+
+```bash
+git clone -b engineFramework https://github.com/doz6x9/web-based-2d-game-engine-framework.git my-game
+cd my-game
+npm install
+npm run example        # opens the starter at http://localhost:5173
+```
+
+On `main` and `develop` the same starter is in `packages/engine/examples/starter`, and `npm run example` works from the repository root.
+
+The starter is about 100 lines and shows the core features:
+
+- a 32 × 20 JSON map with three layers: ground (`terrain`), decor (`landmarks`) and a `collision` layer, plus an `objects` list with the spawn, a torch and a door;
+- a camera that follows the player across a map larger than the 20 × 12-cell canvas;
+- right-click to walk with A\*, which takes the road around the swamp because it is cheaper;
+- the player's light and a torch, with field of view, shadows and Fog of War;
+- left-click the door next to you to open it, and flood fill reveals the room behind it;
+- clicked cells printed on the canvas.
+
+To build your own game, copy `examples/starter`, edit `public/maps/starter.json` and the PNGs in `public/sprites`, and change the rules in `main.ts`. `npm run example:check` type-checks it. The starter is not part of the published package.
 
 ## Install
 
@@ -246,6 +270,7 @@ Useful scripts:
 - `npm run typecheck` runs TypeScript without emitting files.
 - `npm test` runs the unit tests once; `npm run test:watch` re-runs them on save.
 - `npm pack --dry-run` verifies the exact package contents before publishing.
+- `npm run example` starts the starter game; `npm run example:check` type-checks it.
 
 ## Running the Tests
 
@@ -258,12 +283,22 @@ npm run test:watch  # re-run on save
 
 ## Publish Checklist
 
-1. Update `name`, `version`, `author`, `repository`, and `keywords` in `package.json`.
-2. Run `npm run build`.
-3. Run `npm pack --dry-run` and check that only package files are included.
-4. Log in to GitHub Packages with a GitHub token that has the `write:packages` scope: `npm login --scope=@doz6x9 --auth-type=legacy --registry=https://npm.pkg.github.com` (use your GitHub username, and the token as the password).
-5. Publish with `npm publish`. `publishConfig` in `package.json` sends it to GitHub Packages.
-6. To publish to npmjs.com as well, run `npm login` and then `npm publish --registry=https://registry.npmjs.org --access public`. This needs an npmjs account named `doz6x9` (or an npm organisation with that name) to own the `@doz6x9` scope.
+Releases are published by GitHub Actions. The workflow in `.github/workflows/publish.yml` on the `engineFramework` branch runs when a tag starting with `v` is pushed. It checks that the tag matches the version in `package.json`, runs the tests, builds, and publishes to GitHub Packages with the repository's own token, so no personal token is needed.
+
+1. Bump `version` in `package.json` (for example to `0.4.0`), commit and push to `engineFramework`.
+2. Run `npm pack --dry-run` and check that only package files are included.
+3. Tag the commit and push the tag:
+
+   ```bash
+   git tag v0.4.0
+   git push origin v0.4.0
+   ```
+
+4. Watch the run under the repository's **Actions** tab. The new version then shows on the package page.
+
+If the run fails with a permission error, open the package's settings on GitHub and, under **Manage Actions access**, give this repository the **Write** role.
+
+To publish by hand instead, log in with a token that has the `write:packages` scope (`npm login --scope=@doz6x9 --auth-type=legacy --registry=https://npm.pkg.github.com`) and run `npm publish`. To publish to npmjs.com as well, run `npm login` and then `npm publish --registry=https://registry.npmjs.org --access public`. This needs an npmjs account or organisation named `doz6x9` to own the `@doz6x9` scope.
 
 ## License
 
